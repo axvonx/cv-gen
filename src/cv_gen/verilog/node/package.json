@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "yosys2digitaljs": "0.10.3"
+  }
+}

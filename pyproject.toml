@@ -1,0 +1,41 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cv-gen"
+version = "0.3.0"
+description = "Generate CircuitVerse projects from Verilog and create testbenches"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = [
+    "httpx>=0.28.1",
+    "keyring>=25.7.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3",
+  "ruff>=0.11",
+]
+
+[project.scripts]
+cv-gen = "cv_gen.app:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cv_gen"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+pythonpath = ["src"]
+testpaths = ["tests"]
+markers = ["engine: runs the real CircuitVerse engine (needs `cv-gen engine install`)"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["spikes"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]

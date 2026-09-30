@@ -1,0 +1,23 @@
+[verilog]
+sources = ["child.v", "top.sv"]
+top = "top"
+includes = ["include"]
+parameters = { WIDTH = 5 }
+defines = { CVGEN_EXAMPLE = "1" }
+clocks = ["clk"]
+format = "legacy"
+output = "build/top.cv"
+
+[[scenario]]
+name = "reset and arithmetic"
+setup = [
+  { inputs = { clk = 0, rst = 1, a = 0, b = 0 }, sample = false },
+  { inputs = { clk = 1 }, sample = true },
+  { inputs = { clk = 0, rst = 0 }, sample = false },
+]
+steps = [
+  { inputs = { a = 3, b = 5 }, sample = true },
+  { inputs = { clk = 1 }, sample = true },
+  { inputs = { clk = 0, a = 15, b = 20 }, sample = true },
+  { inputs = { clk = 1 }, sample = true },
+]

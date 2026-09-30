@@ -1,0 +1,28 @@
+[verilog]
+sources = ["teaching_cpu.v"]
+top = "teaching_cpu"
+clocks = ["clk"]
+format = "legacy"
+output = "build/teaching-cpu.cv"
+
+[[scenario]]
+name = "run 3 plus 5"
+setup = [
+  { inputs = { clk = 0, rst = 1, opcode = 0, immediate = 0 }, sample = false },
+  { inputs = { rst = 0 }, sample = false },
+]
+steps = [
+  { inputs = { opcode = 1, immediate = 3 }, sample = false },
+  { inputs = { clk = 1 }, sample = true },
+  { inputs = { clk = 0 }, sample = false },
+  { inputs = { opcode = 2, immediate = 5 }, sample = false },
+  { inputs = { clk = 1 }, sample = true },
+  { inputs = { clk = 0 }, sample = false },
+  { inputs = { opcode = 3 }, sample = false },
+  { inputs = { clk = 1 }, sample = true },
+  { inputs = { clk = 0 }, sample = false },
+  { inputs = { opcode = 4 }, sample = false },
+  { inputs = { clk = 1 }, sample = true },
+  { inputs = { clk = 0 }, sample = false },
+  { inputs = { clk = 1 }, sample = true },
+]
