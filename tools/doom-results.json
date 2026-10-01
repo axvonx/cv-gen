@@ -9,8 +9,17 @@
     "image_bytes": 421784
   },
   "boot": {
-    "first_frame": {"frame": 1, "instret": 22345010, "cycles": 49028822, "note": "start of the screen wipe into E1M1"},
-    "first_gameplay_frame": {"frame": 42, "instret": 32052274, "cycles": 71241319}
+    "first_frame": {
+      "frame": 1,
+      "instret": 22345010,
+      "cycles": 49028822,
+      "note": "start of the screen wipe into E1M1"
+    },
+    "first_gameplay_frame": {
+      "frame": 42,
+      "instret": 32052274,
+      "cycles": 71241319
+    }
   },
   "gameplay_per_frame": {
     "note": "one game tic per frame; frames 60-200, no input",
@@ -18,9 +27,20 @@
     "cycles_median": 6910302,
     "cycles_max": 7103412,
     "cpi": 2.181,
-    "with_walk_input": {"frames": "60-240", "instret_median": 3016827, "cycles_median": 6605966, "cycles_max": 8232481, "cpi": 2.201}
+    "with_walk_input": {
+      "frames": "60-240",
+      "instret_median": 3016827,
+      "cycles_median": 6605966,
+      "cycles_max": 8232481,
+      "cpi": 2.201
+    }
   },
-  "memory": {"heap_high_water": "0x006e7358", "stack_bytes_used": 1188, "zone_mib": 6, "ram_mib": 16},
+  "memory": {
+    "heap_high_water": "0x006e7358",
+    "stack_bytes_used": 1188,
+    "zone_mib": 6,
+    "ram_mib": 16
+  },
   "profile_walk_240_frames_cycles_percent": {
     "__mulsi3": 32.79,
     "R_DrawColumn": 18.0,
@@ -35,7 +55,13 @@
   },
   "speed": {
     "iss_instr_per_second": 250000000,
-    "rtl_native_verilator_cycles_per_second": {"fast_testbench": [10.47e6, 11.36e6], "trace_testbench": 2.82e6},
+    "rtl_native_verilator_cycles_per_second": {
+      "fast_testbench": [
+        10470000.0,
+        11360000.0
+      ],
+      "trace_testbench": 2820000.0
+    },
     "rtl_native_seconds_to_first_gameplay_frame": 6.5,
     "rtl_native_seconds_per_gameplay_frame": 0.63,
     "browser_estimate_seconds_per_gameplay_frame": {
@@ -59,5 +85,54 @@
       "reset_scenario": "pass (3 samples)",
       "banks_program_loaded_and_run": "pass (376 samples, native CircuitVerse gates vs Verilator)"
     }
+  },
+  "note": "Sections boot..circuitverse describe the RV32I baseline (commit 589d1de); rv32m is the current machine.",
+  "rv32m": {
+    "build": "-march=rv32im -O2 (image 413,888 bytes before bss)",
+    "boot": {
+      "first_gameplay_frame": 42,
+      "instret": 21211161,
+      "cycles": 49166986
+    },
+    "gameplay_per_frame_no_input": {
+      "instret_median": 1470276,
+      "cycles_median": 3445590,
+      "cycles_max": 3481840
+    },
+    "gameplay_per_frame_walk": {
+      "instret_median": 1351611,
+      "cycles_median": 3211511,
+      "cycles_max": 3821281,
+      "cpi": 2.376
+    },
+    "walk_cycle_reduction_vs_rv32i": "51.4% (2.06x)",
+    "profile_walk_cycles_percent": {
+      "R_DrawColumn": 33.26,
+      "R_DrawSpan": 24.54,
+      "R_RenderSegLoop": 7.92,
+      "R_MakeSpans": 6.21,
+      "memcpy": 5.67,
+      "__udivmoddi4": 3.01
+    },
+    "native_verilator_cycles_per_second": {
+      "behavioral_rv32m_bodies": 10390000.0,
+      "structural_rv32m_bodies": 3800000.0
+    },
+    "native_seconds_per_gameplay_frame": 0.31,
+    "browser_estimate_seconds_per_gameplay_frame": {
+      "value": 5.9,
+      "basis": "3.21 M cycles at 547 k cycles/s; not measured with DOOM"
+    },
+    "correctness": {
+      "rtl_vs_iss_walk": "240/240 frames identical, consoles identical (behavioral and structural testbenches)",
+      "rv32im_vs_rv32i": "frames 34-240 hash-identical; wipe frames differ (stale zone memory, image layout changed)",
+      "host_vs_iss": "unchanged: only walk frame 107 differs by one pixel",
+      "rv32m_tests": "2,048 edge and 16,384 random results == Python reference on ISS, behavioral and structural RTL",
+      "circuitverse": "structural rv32_muldiv: 3,072 samples (2,048 edge + 1,024 random) == Verilator; full machine with M runs the loaded banks program == Verilator; doom.cv 1,838,948 bytes"
+    },
+    "circuitverse_findings": [
+      "native CircuitVerse multiply loses low bits on 32x32 products (double precision), so rv32_mul uses four exact 16x16 products",
+      "cv-gen cannot convert / and %, so rv32_div is a 32-stage restoring divider, one module per stage to fit cv-gen's per-scope schematic limit"
+    ]
   }
 }

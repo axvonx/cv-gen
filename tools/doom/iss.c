@@ -1,7 +1,8 @@
 /* Reference RV32I instruction-set simulator for the DOOM machine.
  *
  * A test oracle only: DOOM's deliverable runs on the RTL. It mirrors the RTL's
- * instruction legality (examples/riscv/rv32_decode.v), its 2/3-cycle timing,
+ * instruction legality (examples/riscv/rv32_decode.v plus RV32M from
+ * rv32_muldiv.v, which also takes two cycles), its 2/3-cycle timing,
  * the memory map and MMIO in examples/doom/runtime/machine.h, and the frame
  * handshake: a doorbell write ends a frame, after which the key events
  * scheduled for that frame enter the key FIFO before execution resumes.
@@ -148,7 +149,24 @@ int main(int argc, char **argv)
             if (take) next = pc + imm_b;
             break;
         }
-        case 0x13: case 0x33: {
+        case 0x33:
+            if (f7 == 1) { /* RV32M */
+                int32_t sa = (int32_t)a, sb = (int32_t)b;
+                write = 1;
+                switch (f3) {
+                case 0: value = a * b; break;
+                case 1: value = (uint32_t)(((int64_t)sa * sb) >> 32); break;
+                case 2: value = (uint32_t)(((int64_t)sa * (int64_t)(uint64_t)b) >> 32); break;
+                case 3: value = (uint32_t)(((uint64_t)a * b) >> 32); break;
+                case 4: value = !b ? ~0u : (sa == INT32_MIN && sb == -1) ? a : (uint32_t)(sa / sb); break;
+                case 5: value = !b ? ~0u : a / b; break;
+                case 6: value = !b ? a : (sa == INT32_MIN && sb == -1) ? 0 : (uint32_t)(sa % sb); break;
+                case 7: value = !b ? a : a % b; break;
+                }
+                break;
+            }
+            /* fall through */
+        case 0x13: {
             uint32_t operand = opcode == 0x13 ? (uint32_t)imm_i : b;
             int alternate = (insn >> 30) & 1 && (opcode == 0x33 || f3 == 5);
             write = 1;

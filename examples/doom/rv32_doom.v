@@ -1,4 +1,4 @@
-// The DOOM machine: the unchanged RV32I teaching core on the DOOM bus. With run
+// The DOOM machine: the teaching core with RV32M (M=1) on the DOOM bus. With run
 // low, the host loads the program and WAD through the loader port (present
 // address and data, then pulse load_enable); it then runs, acknowledges frame
 // doorbells (the CPU halts while frame_pending) and pushes key events.
@@ -15,7 +15,7 @@ module rv32_doom(input clk,rst,run,load_enable,inspect,
  wire [15:0] retired;
  wire write,bus_fault;
  wire cpu_run=run && !done && !frame_pending && !load_enable && !inspect;
- rv32_core cpu(clk,rst,cpu_run,bus_fault,memory_q,address,data,write,size,pc,instruction,
+ rv32_core #(.M(1)) cpu(clk,rst,cpu_run,bus_fault,memory_q,address,data,write,size,pc,instruction,
                a0,sp,state,retired,fault,access_address,access_kind);
  rv32_doom_bus bus(clk,rst,run,load_enable,inspect,load_address,peek_address,load_data,
                    state,access_kind,pc,address,data,access_address,write,size,retired,

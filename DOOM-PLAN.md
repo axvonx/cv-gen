@@ -15,8 +15,10 @@ frame (with and without scripted input), and the exported machine runs a loaded
 program in native CircuitVerse gates identically to Verilator. Measurements are in
 `tools/doom-results.json`.
 
-**Next: step 4, RV32M.** Software multiply/divide helpers are 47.8 % of all cycles
-(`__mulsi3` alone 32.8 %). See **Next steps** at the end of the bring-up state.
+**RV32M done (step 4, first part).** Gameplay costs 3.21 M cycles per frame with
+walking input (was 6.61 M; 2.06×): ≈0.31 s per frame in native Verilator, ≈5.9 s
+estimated in the browser. Next: CPI/fetch overhead and/or Super Turbo integration
+(see **RV32M** and **Next steps** below).
 
 ## DOOM bring-up state
 
@@ -132,18 +134,44 @@ uv run python tools/doom/cv_scenario.py banks
 uv run cv-gen verilog check --manifest examples/doom/build/cvgen-banks.toml
 ```
 
+### RV32M
+
+`examples/riscv/rv32_muldiv.v`: named, purely combinational subcircuits `rv32_mul`
+(four exact 16×16 products plus signed high-word corrections) and `rv32_div` (32
+`rv32_div_stage` restoring steps, with the RISC-V division-by-zero and overflow
+cases), joined by `rv32_muldiv`. `rv32_core #(.M(1))` overrides the decoder's
+result/illegal for OP+funct7=1; `M=0` (default) keeps the RV32I core for the
+existing fixtures. M instructions take two cycles like other ALU operations.
+
+CircuitVerse constraints found: its native multiplier loses low bits on 32×32
+products (doubles), and cv-gen cannot convert `/` or `%` — hence the structure.
+cv-gen's schematic also rejects a single scope with all 32 divider stages.
+
+Out-of-band arithmetic (the user's named-subcircuit idea, first use): the
+structural divider made native Verilator drop from ≈11 M to 3.8 M cycles/s, a net
+wall-clock loss. `RV32_BEHAVIORAL_ARITHMETIC` gives each named module an
+equivalent behavioral body for compiled models (native testbench, and Super Turbo
+WASM later); exported CircuitVerse keeps the structural bodies. Equivalence:
+`tests/test_doom_machine.py` runs every directed program on the ISS, the
+behavioral testbench and the structural testbench (`machine.build_testbench(
+structural=True)`) and requires identical results, including 2,048 edge and 16,384
+random RV32M results checked against a Python reference; engine tests check the
+structural modules and the full RV32IM machine in native CircuitVerse. The same
+mechanism could later let native CircuitVerse mode compute such named subcircuits
+out of band in WASM instead of propagating their gates — not built yet; it would
+need the same equivalence discipline.
+
 ### Next steps
 
-1. **RV32M** (step 4). Decode in `rv32_decode.v`/ALU; MUL/MULH* single-cycle in
-   EXECUTE; DIV/REM probably multi-cycle (a combinational 32-bit divider is a very
-   large CircuitVerse gate network). Keep the RV32I core variant for the existing
-   fixtures. Mirror in the ISS (signed/unsigned, division by zero, overflow),
-   directed tests, rebuild with `-march=rv32im`, re-run the same walk script and
-   compare RTL == ISS == host, then re-profile. Expect roughly half the cycles.
-2. Then fetch/execute overhead (CPI 2.18), then Super Turbo integration (step 5):
-   320×200 palette display profile, key events, multi-MB loader with pulsed
-   `load_enable`, frame doorbell as the completed-frame signal, and the browser
-   timing policy (one tic per frame keeps it deterministic).
+1. Remaining CPU cost is rendering itself (`R_DrawColumn` 33 %, `R_DrawSpan` 25 %)
+   at CPI 2.38. Options, each measured on the same walk script: overlap FETCH with
+   the previous EXECUTE (pipelining, 2→~1 cycle for ALU ops), or a lower render
+   resolution/detail (`-` detail mode halves column work). Profile the compiled
+   model's cycles/s too.
+2. Super Turbo integration (step 5): build the WASM model with
+   `RV32_BEHAVIORAL_ARITHMETIC`, 320×200 palette display profile, key events into
+   the FIFO, multi-MB loader with pulsed `load_enable`, frame doorbell as the
+   completed-frame signal, one tic per frame. Then measure real browser speed.
 
 ## Current foundation
 
@@ -286,7 +314,7 @@ time follows simulated cycles or paced external ticks so speed changes remain co
 | ISS oracle boot + host reference | DONE | E1M1 gameplay on ISS; host frames match from first gameplay frame |
 | Native RTL DOOM boot | DONE | Actual engine reaches first gameplay frame, no CPU/bus faults |
 | Deterministic correctness and baseline | DONE | Matching reference frames plus instruction/cycle/memory measurements |
-| CPU/model optimization | TODO | Measured improvement with unchanged reference results |
+| CPU/model optimization | IN PROGRESS (RV32M done: 2.06× fewer cycles/frame) | Measured improvement with unchanged reference results |
 | Browser integration and controls | TODO | Correct frames, keyboard movement, lifecycle tests, zero native propagation |
 | Interactive speed assessment | TODO | Published measured game-tick/frame rates and bottlenecks |
 

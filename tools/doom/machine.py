@@ -24,6 +24,7 @@ RTL = [
     "examples/riscv/rv32_alu.v",
     "examples/riscv/rv32_decode.v",
     "examples/riscv/rv32_lanes.v",
+    "examples/riscv/rv32_muldiv.v",
     "examples/riscv/rv32_core.v",
     "examples/doom/rv32_doom_memory.v",
     "examples/doom/rv32_doom_bus.v",
@@ -41,11 +42,12 @@ def build_iss():
     return binary
 
 
-def build_testbench(trace=False):
+def build_testbench(trace=False, structural=False):
+    """structural=True keeps the gate-level RV32M bodies CircuitVerse receives."""
     verilator = shutil.which("verilator")
     if not verilator:
         raise SystemExit("Install Verilator 5.052")
-    mdir = WORK / ("vtrace" if trace else "vfast")
+    mdir = WORK / ("vtrace" if trace else "vstructural" if structural else "vfast")
     cflags = f"-O3 -I{HERE}" + (" -DTRACE" if trace else "")
     subprocess.run(
         [
@@ -61,6 +63,7 @@ def build_testbench(trace=False):
             "-Wno-COMBDLY",
             "-Wno-LATCH",
             *(["--public-flat-rw"] if trace else []),
+            *([] if structural else ["-DRV32_BEHAVIORAL_ARITHMETIC"]),
             "--top-module",
             "rv32_doom",
             "--Mdir",
@@ -79,14 +82,14 @@ def build_testbench(trace=False):
     return mdir / "tb_doom"
 
 
-def assemble(source, out):
+def assemble(source, out, march="rv32im"):
     """Links a directed test program at address 0 with the runtime's linker script."""
     elf = out.with_suffix(".elf")
     subprocess.run(
         [
             tool("clang"),
             "--target=riscv32-unknown-elf",
-            "-march=rv32i",
+            f"-march={march}",
             "-mabi=ilp32",
             "-nostdlib",
             "-fuse-ld=lld",

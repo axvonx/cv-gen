@@ -34,7 +34,13 @@ WAD_URL = "https://github.com/Akbar30Bill/DOOM_wads/raw/master/doom1.wad"
 WAD_SHA1 = "5b2e249b9c5133ec987b3ea77596381dc0d6bc1d"
 WAD_SHA256 = "1d7d43be501e67d927e415e0b8f3e29c3bf33075e859721816f652a526cac771"
 
-TARGET = ["--target=riscv32-unknown-elf", "-march=rv32i", "-mabi=ilp32"]
+MARCH = "rv32im"  # the DOOM machine's core has RV32M; rv32i builds remain for comparison
+
+
+def target(march):
+    return ["--target=riscv32-unknown-elf", f"-march={march}", "-mabi=ilp32"]
+
+
 DEFINES = ["-DCMAP256", "-DDOOMGENERIC_RESX=320", "-DDOOMGENERIC_RESY=200"]
 # Builtins that need an OS, long double or atomics are not used by the engine.
 SKIP_BUILTINS = (
@@ -123,8 +129,8 @@ def compile_all(jobs, flags, objdir):
         return list(pool.map(one, jobs))
 
 
-def builtins_archive():
-    archive = WORK / "builtins" / "libbuiltins.a"
+def builtins_archive(march):
+    archive = WORK / "builtins" / march / "libbuiltins.a"
     if archive.exists():
         return archive
     sources = [
@@ -134,9 +140,9 @@ def builtins_archive():
         and "tf" not in s.stem
         and "xf" not in s.stem
     ] + [BUILTINS / "riscv" / "mulsi3.S"]
-    objdir = WORK / "builtins"
+    objdir = WORK / "builtins" / march
     objdir.mkdir(parents=True, exist_ok=True)
-    flags = [*TARGET, "-O2", "-ffreestanding", "-fno-builtin", "-w", "-c"]
+    flags = [*target(march), "-O2", "-ffreestanding", "-fno-builtin", "-w", "-c"]
 
     def one(source):
         target = objdir / (source.name + ".o")
@@ -154,13 +160,13 @@ def builtins_archive():
     return archive
 
 
-def build(optimize, out=OUT):
+def build(optimize, out=OUT, march=MARCH):
     out.mkdir(parents=True, exist_ok=True)
     resource = run(
         [tool("clang"), "-print-resource-dir"], capture_output=True, text=True
     ).stdout.strip()
     common = [
-        *TARGET,
+        *target(march),
         optimize,
         "-g",
         "-nostdinc",
@@ -189,7 +195,7 @@ def build(optimize, out=OUT):
     run(
         [
             tool("clang"),
-            *TARGET,
+            *target(march),
             "-nostdlib",
             "-fuse-ld=lld",
             "-Wl,--no-relax",
@@ -199,7 +205,7 @@ def build(optimize, out=OUT):
             str(start),
             *map(str, runtime),
             *map(str, engine),
-            str(builtins_archive()),
+            str(builtins_archive(march)),
             "-o",
             str(elf),
         ]
@@ -227,9 +233,10 @@ def main():
     parser.add_argument("-O", dest="optimize", default="2", help="optimization level")
     parser.add_argument("--out", type=Path, default=OUT, help="output directory")
     parser.add_argument("--no-host", action="store_true", help="skip the host reference")
+    parser.add_argument("--march", default=MARCH, help="rv32im (default) or rv32i")
     args = parser.parse_args()
     fetch()
-    build(f"-O{args.optimize}", args.out)
+    build(f"-O{args.optimize}", args.out, args.march)
     if not args.no_host:
         build_host()
 
