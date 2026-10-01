@@ -1,0 +1,194 @@
+{
+  "firefox": "157.0",
+  "passed": true,
+  "renderingEnabled": true,
+  "runs": [
+    {
+      "trial": 1,
+      "mode": "insertion",
+      "frameMs": 14378,
+      "edges": 36150,
+      "edgesPerSecond": 2514.257894004729,
+      "browserFrames": {
+        "gapsOver100Ms": 0,
+        "maxGapMs": 84.28000000000247,
+        "samples": 181
+      }
+    },
+    {
+      "trial": 1,
+      "mode": "super",
+      "frameMs": 36,
+      "edges": 36150,
+      "edgesPerSecond": 1004166.6666666666,
+      "browserFrames": {
+        "gapsOver100Ms": 0,
+        "maxGapMs": 0,
+        "samples": 0
+      }
+    },
+    {
+      "trial": 2,
+      "mode": "super",
+      "frameMs": 24,
+      "edges": 36150,
+      "edgesPerSecond": 1506250.0,
+      "browserFrames": {
+        "gapsOver100Ms": 0,
+        "maxGapMs": 0,
+        "samples": 0
+      }
+    },
+    {
+      "trial": 2,
+      "mode": "insertion",
+      "frameMs": 14271,
+      "edges": 36150,
+      "edgesPerSecond": 2533.1091023754466,
+      "browserFrames": {
+        "gapsOver100Ms": 0,
+        "maxGapMs": 84.20000000000073,
+        "samples": 180
+      }
+    },
+    {
+      "trial": 3,
+      "mode": "insertion",
+      "frameMs": 13860,
+      "edges": 36150,
+      "edgesPerSecond": 2608.225108225108,
+      "browserFrames": {
+        "gapsOver100Ms": 0,
+        "maxGapMs": 84.31999999999971,
+        "samples": 174
+      }
+    },
+    {
+      "trial": 3,
+      "mode": "super",
+      "frameMs": 33,
+      "edges": 36150,
+      "edgesPerSecond": 1095454.5454545454,
+      "browserFrames": {
+        "gapsOver100Ms": 0,
+        "maxGapMs": 0,
+        "samples": 0
+      }
+    }
+  ],
+  "checks": [
+    "CPU 32 frames plus wrap",
+    "zero native propagation",
+    "native pause control",
+    "period changes do not start native timer",
+    "run hold preserves clock and loader semantics",
+    "pause freezes edges",
+    "one-half-edge step",
+    "reset",
+    "loader/inspect",
+    "real hidden-tab suspension and resume",
+    "layout requires resume",
+    "scope switch requires resume",
+    "error stop and native restoration",
+    "16x16 playback 32 plus wrap",
+    "64x64 playback 32 plus wrap",
+    "project import invalidates backend"
+  ],
+  "modelId": "aa1f394492cc9ad594930c137736c30b56a1d5347ff3f6337dcd676e43991a7e",
+  "projectSha256": "5bbabdff1fb8c0389c1c55d6890f627ac30d780d2566120713c29ff74aeb5b53",
+  "toolchain": {
+    "verilator": "Verilator 5.052 2026-09-05 rev vUNKNOWN-built20260905",
+    "emscripten": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.10 (d6c521a7f05449857c76bd99e396895583cf2083)"
+  },
+  "sustainedSuperBrowserFrames": {
+    "gapsOver100Ms": 0,
+    "maxGapMs": 17.679999999999836,
+    "samples": 118
+  },
+  "pauseAckMs": {
+    "samples": [
+      6,
+      6,
+      6,
+      4,
+      6,
+      6,
+      4,
+      5,
+      5,
+      6,
+      6,
+      5,
+      6,
+      10,
+      6,
+      6,
+      5,
+      5,
+      6,
+      5
+    ],
+    "p95": 6
+  },
+  "medianFrameMs": {
+    "insertion": 14271,
+    "super": 33
+  },
+  "speedup": 432.45454545454544,
+  "method": "Visible Firefox; same source frontend; first frame warmup, second frame timing; three alternating trials. WASM timestamps at hardware completion; native timestamps at next settled callback. Presentation coalesced at 30Hz; simulation frames are not skipped. Per-run RAF gaps sample the warmed second frame; a separate two-second Super Turbo run measures sustained responsiveness.",
+  "frontendSha256": "099210444028a874aae2eba259ec2f79dc0675c78135782fb1a1ea37566db6d2",
+  "recordedUtc": "2026-10-01T15:55:10.688170+00:00",
+  "machine": {
+    "processor": "Apple M4",
+    "architecture": "arm64",
+    "os": "macOS-26.5.2-arm64-arm-64bit-Mach-O"
+  },
+  "packageChecks": {
+    "cpu": {
+      "passed": true,
+      "profile": "rv32-graphics",
+      "comparisons": 2435,
+      "frames": 33,
+      "pixelsChecked": 8448,
+      "modelId": "aa1f394492cc9ad594930c137736c30b56a1d5347ff3f6337dcd676e43991a7e"
+    },
+    "playback16": {
+      "passed": true,
+      "profile": "rom-playback",
+      "comparisons": 3,
+      "frames": 64,
+      "pixelsChecked": 16384,
+      "modelId": "31fdf4e10e04355d4a05274310b68df5f5dfc7bf67d37bc78958e4aa3d3efda8"
+    },
+    "playback64": {
+      "passed": true,
+      "profile": "rom-playback",
+      "comparisons": 6,
+      "frames": 40,
+      "pixelsChecked": 163840,
+      "modelId": "1e3658067a3b9e0602994cb4fcd6ec0db27c165755adc16d2f691d10ec75e8ee"
+    }
+  },
+  "nativeCircuitVerseTrace": {
+    "passed": true,
+    "halfEdges": 72791,
+    "outputs": 15,
+    "sha256": "ddab43261153edbc704e42b237a81561e99f893533aa3896bc5fec3e0fdd7ee8"
+  },
+  "testResults": {
+    "pythonPassed": 117,
+    "pythonSkipped": 6,
+    "nodePassed": 33,
+    "frontendPassed": 67,
+    "ruff": "passed"
+  },
+  "limitations": [
+    "Pinned local CircuitVerse v0 and Firefox only; no public Tampermonkey delivery.",
+    "Live CPU rendering is 16x16; 64x64 is ROM playback without interactive walking.",
+    "Settled functional values only; internal wires, waveforms, glitches and propagation timing are unavailable.",
+    "Mode changes restart hardware; no native/compiled state transfer.",
+    "Frame completion timings differ from canvas presentation, which is capped at 30Hz.",
+    "Short Super benchmark intervals contained no RAF samples; sustained responsiveness is measured separately.",
+    "Single-machine measurements with Firefox timestamp quantization; no guaranteed frame rate."
+  ]
+}

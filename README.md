@@ -146,3 +146,8 @@ The [CircuitVerse Turbo userscript](tools/CIRCUITVERSE-TURBO.md) adds an opt-in
 adaptive clock runner to the default simulator. It starts off, preserves saved
 clock periods, and suspends while the tab is hidden. Install it through Firefox's
 Tampermonkey dashboard; it does not add a `cv-gen` command or change `.cv` files.
+
+The [local Super Turbo backend](tools/CIRCUITVERSE-SUPER-TURBO.md) compiles the
+generated graphics hardware to WebAssembly and uses CircuitVerse for drawing.
+It supports the live 16×16 CPU renderer and 16×16/64×64 ROM playback, with explicit
+restart on mode changes. See the guide for setup, correctness checks and measured results.
