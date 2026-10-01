@@ -1,0 +1,112 @@
+{
+  "verifiedAtUtc": "2026-10-01T00:48:58.870521+00:00",
+  "firefox": "157.0",
+  "tampermonkey": "5.5.0",
+  "bundleSha256": "4fff7c8a8f6d1bdf5ca826cdf0907ae2c0f5a77b552768fd33ff58b54fef2fe6",
+  "benchmarkUserscriptSha256": "ee395b0df5f8733d2f36f2b787e2744934e5fd4d50f30b217b383de195ef5f58",
+  "deliveredUserscriptSha256": "82fea48ca63f636b426de0c383ec7e7c5167951736a8360385ce5c688e1ece95",
+  "postBenchmarkChange": "Restore button accessible label; scheduler unchanged. Final exact userscript installed and controls checked again.",
+  "deterministicTests": {
+    "passed": 13,
+    "failed": 0
+  },
+  "stateChecks": [
+    "saved-native-period",
+    "pause",
+    "layout",
+    "error",
+    "loading",
+    "no-clock",
+    "circuit-switch",
+    "hidden-tab",
+    "import",
+    "restore-normal-speed"
+  ],
+  "playbackReference": {
+    "framesPerMode": 33,
+    "pixelsPerMode": 135168,
+    "modes": [
+      "normal interval",
+      "Turbo pump"
+    ],
+    "errors": []
+  },
+  "cpuReference": {
+    "framesPerMode": 2,
+    "pixelsPerMode": 512,
+    "baseline": "untimed complete native callback in yielding tasks; not the 50 ms interval",
+    "normalElapsedMs": 87298,
+    "turboElapsedMs": 54137,
+    "errors": []
+  },
+  "benchmark": {
+    "visibleCanvas": true,
+    "renderingEnabled": true,
+    "warmupCompletedFrames": 2,
+    "measuredFrameIntervalsPerRun": 3,
+    "runsPerMode": 3,
+    "normal": {
+      "runs": [
+        {
+          "medianFrameMs": 6722,
+          "edgesPerSecond": 19.057071960297765,
+          "maxFrameGapMs": 17.68000000000029,
+          "frameGapsOver100Ms": 0
+        },
+        {
+          "medianFrameMs": 6726,
+          "edgesPerSecond": 19.061801935964258,
+          "maxFrameGapMs": 17.680000000007567,
+          "frameGapsOver100Ms": 0
+        },
+        {
+          "medianFrameMs": 6758,
+          "edgesPerSecond": 18.996734936182843,
+          "maxFrameGapMs": 17.680000000007567,
+          "frameGapsOver100Ms": 0
+        }
+      ],
+      "medianFrameMs": 6726
+    },
+    "turbo": {
+      "runs": [
+        {
+          "medianFrameMs": 60,
+          "edgesPerSecond": 2098.3606557377047,
+          "maxFrameGapMs": 66.66000000000349,
+          "frameGapsOver100Ms": 0
+        },
+        {
+          "medianFrameMs": 60,
+          "edgesPerSecond": 2064.516129032258,
+          "maxFrameGapMs": 66.68000000000757,
+          "frameGapsOver100Ms": 0
+        },
+        {
+          "medianFrameMs": 61,
+          "edgesPerSecond": 2053.475935828877,
+          "maxFrameGapMs": 50,
+          "frameGapsOver100Ms": 0
+        }
+      ],
+      "medianFrameMs": 60
+    },
+    "latencyRatio": 112.1,
+    "requiredLatencyRatio": 2,
+    "passed": true
+  },
+  "actualTampermonkey": {
+    "installedInTemporaryProfile": true,
+    "earlyInterception": true,
+    "startsOff": true,
+    "recognizedRegistrations": 1,
+    "toggleCollapseRestoreChecked": true,
+    "passed": true
+  },
+  "rawReports": [
+    "build/turbo/firefox-results.json",
+    "build/turbo/benchmark-results.json",
+    "build/turbo/cpu-results.json",
+    "build/turbo/tampermonkey-results.json"
+  ]
+}

@@ -1,0 +1,121 @@
+{
+  "verifiedAtUtc": "2026-10-01T01:19:46.086163+00:00",
+  "firefox": "157.0",
+  "bundleSha256": "4fff7c8a8f6d1bdf5ca826cdf0907ae2c0f5a77b552768fd33ff58b54fef2fe6",
+  "userscriptSha256": "82fea48ca63f636b426de0c383ec7e7c5167951736a8360385ce5c688e1ece95",
+  "circuit": "examples/riscv_graphics/build/cpu-animation.cv / Demo / 16x16 live C renderer",
+  "method": "Gecko sampling, 1 ms interval; warm up through first verified frame; selected content GeckoMain thread; rendering and native waveform behavior enabled",
+  "captureMs": 15018,
+  "samples": 15042,
+  "unprofiledFiveSecondEdgesPerSecond": 1606.694560669456,
+  "profiledEdgesPerSecond": 1461.7126115328272,
+  "measurementCaveat": "Baseline and sampled region cover different portions of a frame. Their difference combines sampling overhead and workload variation; it is not a measured overhead percentage.",
+  "branches": [
+    {
+      "function": "Native play / propagation",
+      "samples": 14486,
+      "percentOfThreadSamples": 96.30368302087489
+    },
+    {
+      "function": "Canvas drawing",
+      "samples": 292,
+      "percentOfThreadSamples": 1.941231219252759
+    },
+    {
+      "function": "Clock toggling outside play",
+      "samples": 101,
+      "percentOfThreadSamples": 0.6714532641935913
+    },
+    {
+      "function": "Other browser / native work",
+      "samples": 71,
+      "percentOfThreadSamples": 0.4720117005717325
+    },
+    {
+      "function": "Turbo / test harness bookkeeping",
+      "samples": 56,
+      "percentOfThreadSamples": 0.37229091876080306
+    },
+    {
+      "function": "Other simulator work",
+      "samples": 22,
+      "percentOfThreadSamples": 0.1462571466560298
+    },
+    {
+      "function": "Waveform",
+      "samples": 12,
+      "percentOfThreadSamples": 0.07977662544874352
+    },
+    {
+      "function": "Idle",
+      "samples": 2,
+      "percentOfThreadSamples": 0.013296104241457253
+    }
+  ],
+  "confirmedHotFunctions": [
+    {
+      "function": "EventQueue.add",
+      "samples": 8091,
+      "percentOfThreadSamples": 53.789389708815314,
+      "sourceLine": 5,
+      "sourceColumn": 34745
+    },
+    {
+      "function": "Node.resolve",
+      "samples": 2041,
+      "percentOfThreadSamples": 13.568674378407128,
+      "sourceLine": 5,
+      "sourceColumn": 115249
+    },
+    {
+      "function": "EventQueue.swap",
+      "samples": 1820,
+      "percentOfThreadSamples": 12.0994548597261,
+      "sourceLine": 5,
+      "sourceColumn": 35628
+    },
+    {
+      "function": "play",
+      "samples": 1060,
+      "percentOfThreadSamples": 7.046935247972344,
+      "sourceLine": 485,
+      "sourceColumn": 151176
+    },
+    {
+      "function": "EventQueue.pop",
+      "samples": 327,
+      "percentOfThreadSamples": 2.1739130434782608,
+      "sourceLine": 5,
+      "sourceColumn": 35761
+    },
+    {
+      "function": "SubCircuit.addInputs",
+      "samples": 292,
+      "percentOfThreadSamples": 1.941231219252759,
+      "sourceLine": 436,
+      "sourceColumn": 27064
+    },
+    {
+      "function": "Splitter.resolve",
+      "samples": 195,
+      "percentOfThreadSamples": 1.2963701635420821,
+      "sourceLine": 45,
+      "sourceColumn": 18883
+    }
+  ],
+  "referenceValidation": {
+    "completedFrames": 2,
+    "pixelsVerified": 512,
+    "faults": [],
+    "passed": true
+  },
+  "nextExperiment": "Prototype a more efficient event priority queue in a local engine build, preserving tie ordering, updates of queued priorities, cancellation/reset semantics, and exact edge/pixel traces.",
+  "profileFile": "build/turbo/profile/cpu-firefox.json.gz",
+  "rawSummary": "build/turbo/profile/summary.json",
+  "limits": [
+    "One 15-second steady-state region on this machine; not a general simulator benchmark.",
+    "Leaf JS shares include native work beneath the innermost simulator JavaScript frame; inclusive call-tree shares overlap.",
+    "Percentages cover the content main thread, not all browser/GPU threads.",
+    "No simulator or userscript performance changes made."
+  ]
+}

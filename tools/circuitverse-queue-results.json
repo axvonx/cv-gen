@@ -1,0 +1,116 @@
+{
+  "verifiedAtUtc": "2026-10-01T01:46:45.430537+00:00",
+  "firefox": "157.0",
+  "bundleSha256": "4fff7c8a8f6d1bdf5ca826cdf0907ae2c0f5a77b552768fd33ff58b54fef2fe6",
+  "candidateSha256": "b3ed2f2dbf5955d6a9c56748053fea6096fecc3c20007a6aa29093cb401061e5",
+  "circuit": "cpu-animation.cv / Demo / 16x16 live CPU renderer",
+  "method": "Visible Firefox; rendering enabled; native and page-context insertion-pass queues both use Turbo; alternating order; three trials per mode; warm through frame one, measure frame two; trace and differential tests excluded from timing.",
+  "runs": [
+    {
+      "trial": 1,
+      "mode": "native",
+      "frameMs": 22556,
+      "edges": 36150,
+      "edgesPerSecond": 1602.6777797481823,
+      "browserFrames": {
+        "gapsOver100Ms": 0,
+        "maxGapMs": 85.33999999999651,
+        "samples": 296
+      }
+    },
+    {
+      "trial": 1,
+      "mode": "insertion",
+      "frameMs": 14414,
+      "edges": 36150,
+      "edgesPerSecond": 2507.9783543776884,
+      "browserFrames": {
+        "gapsOver100Ms": 0,
+        "maxGapMs": 85.30000000000291,
+        "samples": 180
+      }
+    },
+    {
+      "trial": 2,
+      "mode": "insertion",
+      "frameMs": 13941,
+      "edges": 36150,
+      "edgesPerSecond": 2593.070798364536,
+      "browserFrames": {
+        "gapsOver100Ms": 0,
+        "maxGapMs": 85.28000000000247,
+        "samples": 176
+      }
+    },
+    {
+      "trial": 2,
+      "mode": "native",
+      "frameMs": 22193,
+      "edges": 36150,
+      "edgesPerSecond": 1628.8919929707565,
+      "browserFrames": {
+        "gapsOver100Ms": 0,
+        "maxGapMs": 85.29999999999563,
+        "samples": 294
+      }
+    },
+    {
+      "trial": 3,
+      "mode": "native",
+      "frameMs": 22463,
+      "edges": 36150,
+      "edgesPerSecond": 1609.3130926412323,
+      "browserFrames": {
+        "gapsOver100Ms": 0,
+        "maxGapMs": 85.31999999999971,
+        "samples": 292
+      }
+    },
+    {
+      "trial": 3,
+      "mode": "insertion",
+      "frameMs": 13970,
+      "edges": 36150,
+      "edgesPerSecond": 2587.6879026485326,
+      "browserFrames": {
+        "gapsOver100Ms": 0,
+        "maxGapMs": 85.2599999999984,
+        "samples": 173
+      }
+    }
+  ],
+  "medianFrameMs": {
+    "native": 22463,
+    "insertion": 13970
+  },
+  "speedup": 1.6079455977093773,
+  "frameTimeReductionPercent": 37.80884120553799,
+  "validation": {
+    "seededOperations": 80000,
+    "capturedOperations": 20000,
+    "cpuRuns": 6,
+    "cpuFramesPerRun": 2,
+    "cpuPixelsChecked": 3072,
+    "playbackFrames": 33,
+    "playbackPixelsChecked": 135168,
+    "faults": [],
+    "passed": true
+  },
+  "trace": {
+    "adds": 10414,
+    "priorityUpdates": 751,
+    "swapsPerAdd": 9.89763779527559,
+    "meanOccupancyAtAdd": 151.63942769348952,
+    "maxOccupancyAtAdd": 397,
+    "sha256": "a17212c5465365a383c6a4570fd4a63b6fb078e3b4a394f2a776c9f3404945f8"
+  },
+  "limits": [
+    "One machine and live CPU circuit; gain is not a general simulator guarantee.",
+    "Local engine experiment through a test bridge; not installed on the public simulator or added to the Turbo userscript.",
+    "Dedicated waveform, contention/error and control integration regression circuits still needed before deployment.",
+    "Early automation-context trials were discarded; timed replacement compiled in the page context."
+  ],
+  "rawResults": "build/turbo/queue/results.json",
+  "traceFile": "build/turbo/queue/trace.json",
+  "nextExperiment": "Reprofile the insertion-pass candidate, then compare an indexed heap or timestamp buckets if queue insertion remains dominant."
+}

@@ -45,7 +45,9 @@ The [teaching CPU](examples/teaching_cpu/) includes working manifests for both f
 - [RISC-V running C](examples/riscv/): an RV32I core, LLVM build script, startup
   code, persistent program ROM, byte RAM lanes, and a checked C demo returning 55.
 - [RISC-V C raycaster](examples/riscv_graphics/): a 64 KiB memory window, RAM
-  program loader, live 16×16 grayscale screen, and measured native execution.
+  program loader, live 16×16 grayscale screen, automatic CPU boot, and a passive
+  ROM camera animation. Build it with `uv run python examples/riscv_graphics/animate.py`.
+  Add `--size 64` for the larger 64×64 passive playback screen.
 - [CHIP-8](examples/chip8/): 4 KiB RAM, sixteen registers, call stack, timers,
   keypad, sprite XOR/collision engine, and 64×32 framebuffer with a pixel viewer.
 - [LC-3](examples/lc3/): eight 16-bit registers, NZP/PSR, 64K-word RAM,
@@ -137,3 +139,10 @@ The `CV_TOKEN` environment variable overrides the system keyring. Local pull rec
 uv run pytest
 uv run ruff check src tests examples tools
 ```
+
+### Optional Firefox Turbo
+
+The [CircuitVerse Turbo userscript](tools/CIRCUITVERSE-TURBO.md) adds an opt-in
+adaptive clock runner to the default simulator. It starts off, preserves saved
+clock periods, and suspends while the tab is hidden. Install it through Firefox's
+Tampermonkey dashboard; it does not add a `cv-gen` command or change `.cv` files.

@@ -1,5 +1,6 @@
 """Build persistent-ROM and RAM-loadable copies of the grayscale C raycaster."""
 
+import argparse
 import json
 import subprocess
 import sys
@@ -26,7 +27,7 @@ ASSERT(__bss_end<=0xd000,"reserve stack space below 0xe000")
 """
 
 
-def generate_rom(image):
+def generate_rom(image, destination=None):
     banks = (len(image) + 63) // 64
     padded = image.ljust(banks * 64, b"\0")
     lines = ["// Generated from main.c by compile.py."]
@@ -52,12 +53,17 @@ def generate_rom(image):
         "wire [7:0] selector=address[11:4];",
         f"assign data=selector<{banks} ? {mux(values, 'selector')} : 32'b0;endmodule",
     ]
-    (HERE / "rv32_graphics_rom.v").write_text("\n".join(lines) + "\n")
+    (destination or HERE / "rv32_graphics_rom.v").write_text("\n".join(lines) + "\n")
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--animate", action="store_true", help="build the continuous camera sweep")
+    args = parser.parse_args()
     out = HERE / "build"
-    out.mkdir(exist_ok=True)
+    if args.animate:
+        out /= "animation"
+    out.mkdir(parents=True, exist_ok=True)
     sizes = {}
     for name, base in [("rom", 0), ("ram", 0x4000)]:
         ld = out / f"{name}.ld"
@@ -69,6 +75,7 @@ def main():
                 "-march=rv32i",
                 "-mabi=ilp32",
                 "-Os",
+                *(["-DANIMATE"] if args.animate else []),
                 "-msmall-data-limit=0",
                 "-ffreestanding",
                 "-fno-builtin",
@@ -104,7 +111,7 @@ def main():
             )
         )
         if name == "rom":
-            generate_rom(image)
+            generate_rom(image, out / "rv32_graphics_rom.v" if args.animate else None)
         else:
             padded = image.ljust((len(image) + 3) // 4 * 4, b"\0")
             (out / "ram-load.json").write_text(
@@ -119,10 +126,19 @@ def main():
             )
     host = out / "host-raycaster"
     subprocess.run(
-        [tool("clang"), "-DHOST", "-O2", str(HERE / "main.c"), "-o", str(host)], check=True
+        [
+            tool("clang"),
+            "-DHOST",
+            *(["-DANIMATE"] if args.animate else []),
+            "-O2",
+            str(HERE / "main.c"),
+            "-o",
+            str(host),
+        ],
+        check=True,
     )
     pixels = subprocess.check_output([str(host)])
-    assert len(pixels) == 256
+    assert len(pixels) == (8192 if args.animate else 256)
     (out / "expected-frame.bin").write_bytes(pixels)
     sources = ["../common/async_ram.v"] + [
         f"../riscv/{n}.v"
@@ -138,12 +154,15 @@ def main():
     sources += [
         f"{n}.v" for n in ("rv32_memory", "rv32_graphics_rom", "rv32_graphics_bus", "rv32_graphics")
     ]
+    if args.animate:
+        sources = [str((HERE / s).resolve()) for s in sources]
+        sources[sources.index(str(HERE / "rv32_graphics_rom.v"))] = str(out / "rv32_graphics_rom.v")
     for fmt, suffix in [("legacy", ""), ("canonical-v1", "-v1")]:
         # A short structural/behavioral smoke trace; run.py verifies complete boots and frames.
         text = "[verilog]\nsources=[" + ",".join(f'"{s}"' for s in sources) + "]\n"
         text += (
             f'top="rv32_graphics"\nclocks=["clk"]\nformat="{fmt}"\n'
-            f'output="build/graphics{suffix}.cv"\n'
+            f'output="{("graphics" if args.animate else "build/graphics")}{suffix}.cv"\n'
         )
         text += (
             '\n[[scenario]]\nname="boot smoke"\n'
@@ -157,7 +176,7 @@ def main():
             )
             + "]\n"
         )
-        (HERE / f"cvgen-verilog{suffix}.toml").write_text(text)
+        ((out if args.animate else HERE) / f"cvgen-verilog{suffix}.toml").write_text(text)
     print(f"Built ROM {sizes['rom']} bytes, RAM {sizes['ram']} bytes; frame checksum {sum(pixels)}")
 
 

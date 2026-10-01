@@ -1,0 +1,116 @@
+{
+  "verifiedAtUtc": "2026-10-01T02:12:26.574530+00:00",
+  "firefox": "157.0",
+  "bundleSha256": "4fff7c8a8f6d1bdf5ca826cdf0907ae2c0f5a77b552768fd33ff58b54fef2fe6",
+  "candidateSha256": "b3ed2f2dbf5955d6a9c56748053fea6096fecc3c20007a6aa29093cb401061e5",
+  "candidateSameRealm": true,
+  "captureMs": 8023,
+  "samples": 8046,
+  "method": "1 ms Gecko sampling after one warm-up frame; insertion-pass queue served as a separate page-context script; rendering enabled; two C reference frames checked.",
+  "branches": [
+    {
+      "function": "Native play / propagation",
+      "samples": 7728,
+      "percentOfThreadSamples": 96.04772557792693
+    },
+    {
+      "function": "Canvas drawing",
+      "samples": 148,
+      "percentOfThreadSamples": 1.839423315933383
+    },
+    {
+      "function": "Clock toggling outside play",
+      "samples": 66,
+      "percentOfThreadSamples": 0.8202833706189411
+    },
+    {
+      "function": "Other browser / native work",
+      "samples": 41,
+      "percentOfThreadSamples": 0.5095699726572209
+    },
+    {
+      "function": "Turbo / test harness bookkeeping",
+      "samples": 40,
+      "percentOfThreadSamples": 0.49714143673875216
+    },
+    {
+      "function": "Other simulator work",
+      "samples": 20,
+      "percentOfThreadSamples": 0.24857071836937608
+    },
+    {
+      "function": "Idle",
+      "samples": 2,
+      "percentOfThreadSamples": 0.024857071836937607
+    },
+    {
+      "function": "Waveform",
+      "samples": 1,
+      "percentOfThreadSamples": 0.012428535918468804
+    }
+  ],
+  "hotFunctions": [
+    {
+      "function": "Insertion-pass EventQueue.add",
+      "samples": 3889,
+      "percentOfThreadSamples": 48.33457618692518
+    },
+    {
+      "function": "Node.resolve",
+      "samples": 1690,
+      "percentOfThreadSamples": 21.00422570221228
+    },
+    {
+      "function": "play",
+      "samples": 940,
+      "percentOfThreadSamples": 11.682823763360677
+    },
+    {
+      "function": "SubCircuit.addInputs",
+      "samples": 273,
+      "percentOfThreadSamples": 3.3929903057419835
+    },
+    {
+      "function": "EventQueue.pop",
+      "samples": 249,
+      "percentOfThreadSamples": 3.0947054436987322
+    },
+    {
+      "function": "Splitter.resolve",
+      "samples": 145,
+      "percentOfThreadSamples": 1.8021377081779766
+    }
+  ],
+  "unprofiledEdgesPerSecond": 2577.954319761668,
+  "profiledEdgesPerSecond": 2365.947899788109,
+  "validation": {
+    "completedFrames": 2,
+    "pixelsVerified": 512,
+    "faults": [],
+    "passed": true
+  },
+  "profileFile": "build/turbo/profile/insertion-external/cpu-firefox.json.gz",
+  "rawSummary": "build/turbo/profile/insertion-external/summary.json",
+  "limitations": [
+    "Different capture duration and frame region from the original profile; sample share changes are not exact per-function speedup measurements.",
+    "Leaf JS shares include native work beneath those frames; content main thread only.",
+    "Unprofiled and profiled windows differ in workload as well as profiling overhead.",
+    "Inline-script capture discarded for hotspot decisions because Firefox did not label the queue frames separately."
+  ],
+  "nextExperiment": "Prototype timestamp buckets first: the captured workload has at most two distinct queued times. Verify native ties, unchanged priorities and both update directions against the oracle before full-frame benchmarks; compare an indexed heap if other workloads have many timestamps.",
+  "capturedTraceTimestampAnalysis": {
+    "operations": 20000,
+    "meanDistinctTimesAtAdd": 1.988381025542539,
+    "maxDistinctTimesAtAdd": 2,
+    "effectiveDelayCounts": {
+      "0": 8379,
+      "10": 2035
+    },
+    "priorityUpdateDirections": {
+      "unchanged": 746,
+      "later": 5,
+      "earlier": 0
+    },
+    "scope": "Bounded native trace after warm-up; not all frames or CircuitVerse projects."
+  }
+}
