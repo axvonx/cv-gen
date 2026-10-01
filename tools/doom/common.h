@@ -15,7 +15,7 @@
 #include "../../examples/doom/runtime/machine.h"
 
 typedef struct {
-    const char *image, *wad, *out, *keys;
+    const char *image, *wad, *out, *keys, *profile; /* profile: llvm-nm -n -S symbols */
     uint64_t max_instret, max_frames;
     uint64_t dump_from, dump_every;     /* PPM frames; dump_every 0 disables */
     uint64_t checkpoint_every;          /* rolling-hash checkpoint interval */
@@ -41,6 +41,7 @@ static int parse_options(int argc, char **argv, options_t *o)
 #define NUMBER(name, field) if (!strcmp(k, name) && v) { o->field = strtoull(v, NULL, 0); i++; continue; }
 #define STRING(name, field) if (!strcmp(k, name) && v) { o->field = v; i++; continue; }
         STRING("--image", image) STRING("--wad", wad) STRING("--out", out) STRING("--keys", keys)
+        STRING("--profile", profile)
         NUMBER("--max-instret", max_instret) NUMBER("--frames", max_frames)
         NUMBER("--dump-from", dump_from) NUMBER("--dump-every", dump_every)
         NUMBER("--checkpoint-every", checkpoint_every)
@@ -48,7 +49,7 @@ static int parse_options(int argc, char **argv, options_t *o)
         if (!strcmp(k, "--quiet")) { o->quiet = 1; continue; }
         fprintf(stderr, "usage: %s [--image F] [--wad F] [--out DIR] [--keys F] [--frames N]\n"
                 "  [--max-instret N] [--dump-from N --dump-every N] [--checkpoint-every N]\n"
-                "  [--trace-from N --trace-count N] [--quiet]\n", argv[0]);
+                "  [--trace-from N --trace-count N] [--profile SYMS] [--quiet]\n", argv[0]);
         return 1;
     }
     return 0;
@@ -242,15 +243,19 @@ static inline void run_log_retire(run_log_t *log, uint64_t instret, uint32_t pc,
 static void run_log_close(run_log_t *log, int exit_code, int cause, uint32_t pc, uint64_t instret,
                           uint64_t cycles, uint64_t frames, double seconds)
 {
+    /* Store addresses are tracked only by the ISS; the testbench reports null. */
+    char heap[16] = "null", stack[16] = "null";
+    if (log->heap_high) snprintf(heap, sizeof heap, "\"0x%08x\"", log->heap_high);
+    if (log->stack_low != STACK_TOP) snprintf(stack, sizeof stack, "\"0x%08x\"", log->stack_low);
     FILE *f = open_out(log->o, "summary.json");
     fprintf(f, "{\n  \"exit_code\": %d,\n  \"fault\": \"%s\",\n  \"pc\": \"0x%08x\",\n"
             "  \"instret\": %" PRIu64 ",\n  \"cycles\": %" PRIu64 ",\n  \"frames\": %" PRIu64 ",\n"
             "  \"first_gameplay_frame\": %" PRIu64 ",\n  \"first_gameplay_instret\": %" PRIu64 ",\n"
             "  \"first_gameplay_cycles\": %" PRIu64 ",\n"
-            "  \"heap_high_water\": \"0x%08x\",\n  \"stack_low_water\": \"0x%08x\",\n"
+            "  \"heap_high_water\": %s,\n  \"stack_low_water\": %s,\n"
             "  \"final_hash\": \"%016" PRIx64 "\",\n  \"host_seconds\": %.3f\n}\n",
             exit_code, fault_name(cause), pc, instret, cycles, frames, log->first_gameplay_frame,
-            log->first_gameplay_instret, log->first_gameplay_cycles, log->heap_high, log->stack_low,
+            log->first_gameplay_instret, log->first_gameplay_cycles, heap, stack,
             log->hash, seconds);
     fclose(f);
     fprintf(log->checkpoints, "%" PRIu64 " %016" PRIx64 " final\n", instret, log->hash);

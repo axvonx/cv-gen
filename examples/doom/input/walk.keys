@@ -1,0 +1,15 @@
+# Deterministic input script: "frame pressed key". Events for frame N enter the
+# key FIFO after frame doorbell N. Keys are doomkeys.h codes.
+# Walk forward, turn right, fire twice, turn left, walk, open nothing.
+50  1 0xad   # up arrow: forward
+90  0 0xad
+90  1 0xae   # right arrow: turn right
+104 0 0xae
+105 1 0xa3   # fire
+107 0 0xa3
+125 1 0xa3
+127 0 0xa3
+140 1 0xac   # left arrow: turn left
+160 0 0xac
+160 1 0xad
+200 0 0xad

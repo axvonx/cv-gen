@@ -1,0 +1,63 @@
+{
+  "date": "2026-10-01",
+  "machine": "Apple M4, Verilator 5.052, Homebrew clang 23.1.2",
+  "inputs": {
+    "doomgeneric": "dcb7a8dbc7a16ce3dda29382ac9aae9d77d21284",
+    "compiler_rt": "llvmorg-23.1.2",
+    "wad_sha256": "1d7d43be501e67d927e415e0b8f3e29c3bf33075e859721816f652a526cac771",
+    "build": "-march=rv32i -O2, CMAP256, 320x200, -warp 1 1, singletics",
+    "image_bytes": 421784
+  },
+  "boot": {
+    "first_frame": {"frame": 1, "instret": 22345010, "cycles": 49028822, "note": "start of the screen wipe into E1M1"},
+    "first_gameplay_frame": {"frame": 42, "instret": 32052274, "cycles": 71241319}
+  },
+  "gameplay_per_frame": {
+    "note": "one game tic per frame; frames 60-200, no input",
+    "instret_median": 3168249,
+    "cycles_median": 6910302,
+    "cycles_max": 7103412,
+    "cpi": 2.181,
+    "with_walk_input": {"frames": "60-240", "instret_median": 3016827, "cycles_median": 6605966, "cycles_max": 8232481, "cpi": 2.201}
+  },
+  "memory": {"heap_high_water": "0x006e7358", "stack_bytes_used": 1188, "zone_mib": 6, "ram_mib": 16},
+  "profile_walk_240_frames_cycles_percent": {
+    "__mulsi3": 32.79,
+    "R_DrawColumn": 18.0,
+    "R_DrawSpan": 12.9,
+    "__udivsi3": 7.8,
+    "__muldi3": 5.25,
+    "R_RenderSegLoop": 4.19,
+    "R_MakeSpans": 3.26,
+    "memcpy": 2.98,
+    "__udivmoddi4": 1.64,
+    "all_software_mul_div_helpers": 47.79
+  },
+  "speed": {
+    "iss_instr_per_second": 250000000,
+    "rtl_native_verilator_cycles_per_second": {"fast_testbench": [10.47e6, 11.36e6], "trace_testbench": 2.82e6},
+    "rtl_native_seconds_to_first_gameplay_frame": 6.5,
+    "rtl_native_seconds_per_gameplay_frame": 0.63,
+    "browser_estimate_seconds_per_gameplay_frame": {
+      "value": 12.6,
+      "basis": "6.91 M cycles at the raycaster's measured 547 k cycles/s; not measured with DOOM"
+    }
+  },
+  "correctness": {
+    "rtl_vs_iss_no_input": "200/200 frames identical (hash, instret, cycles); console identical",
+    "rtl_vs_iss_walk_input": "240/240 frames identical",
+    "rtl_vs_iss_retire_hash": "identical at 30 checkpoints over 30 M instructions (trace testbench)",
+    "host_vs_iss": "gameplay frames 42-200 identical without input; with walk input 198/199, frame 107 differs in one pixel (host LP64 build; RV32 -O0 and -O2 agree)",
+    "wipe_frames": "host differs from ISS on frames 1-41: the wipe start screen samples stale zone memory whose layout depends on pointer size",
+    "directed_tests": "tests/test_doom_machine.py: 8 fault causes, counters across the 16-bit wrap, bank boundaries/lanes, key FIFO + frame handshake (RTL == ISS)"
+  },
+  "circuitverse": {
+    "cv_bytes": 1535159,
+    "generation_seconds": 39,
+    "ram": "one RAM(8-bit, addressWidth 20) definition instantiated 16 times; contents not serialized",
+    "checks": {
+      "reset_scenario": "pass (3 samples)",
+      "banks_program_loaded_and_run": "pass (376 samples, native CircuitVerse gates vs Verilator)"
+    }
+  }
+}

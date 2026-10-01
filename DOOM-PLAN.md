@@ -3,17 +3,20 @@
 ## Resume here
 
 Read this file and `SUPER-TURBO-PLAN.md`, then inspect git status before working.
-The next milestone is **the real DOOM engine boots and produces its first gameplay
-frame on our RTL in native Verilator**. Do not start with another CircuitVerse
-scheduling optimization or assume the existing raycaster is DOOM.
+Do not start with another CircuitVerse scheduling optimization or assume the
+existing raycaster is DOOM.
 
 Work directly, without Lavish sessions, agent delegation, or the no-mistakes
 workflow. The user explicitly prohibited no-mistakes. Preserve unrelated work.
 
-Progress: the pinned engine, runtime and ISS oracle are done, and DOOM reaches
-E1M1 gameplay on the ISS; host-reference frames match. Next: the DOOM machine
-RTL (`examples/doom/*.v`), the CircuitVerse representation check, and the native
-Verilator testbench. See **DOOM bring-up state** below.
+**Milestone reached (2026-10-01): the real DOOM engine boots and renders E1M1
+gameplay on our RTL in native Verilator**, bit-identical to the ISS oracle on every
+frame (with and without scripted input), and the exported machine runs a loaded
+program in native CircuitVerse gates identically to Verilator. Measurements are in
+`tools/doom-results.json`.
+
+**Next: step 4, RV32M.** Software multiply/divide helpers are 47.8 % of all cycles
+(`__mulsi3` alone 32.8 %). See **Next steps** at the end of the bring-up state.
 
 ## DOOM bring-up state
 
@@ -57,30 +60,90 @@ Correction to the earlier review: misaligned loads/stores are **not** silent —
 `rv32_decode.v` marks them illegal and the core faults. The new bus adds a fault
 cause (illegal/fetch/align/access/MMIO) so failures are diagnosable.
 
-Measured on the ISS (`tools/doom/iss.c`, same legality and 2/3-cycle timing as the
-RTL), `-warp 1 1`, no input:
+RTL (`examples/doom`): `rv32_doom.v` puts the **unchanged** teaching core on
+`rv32_doom_bus.v` (MMIO, frame handshake, 8-entry key FIFO, 64-bit counters kept as
+32-bit halves, combinational fault cause) and `rv32_doom_memory.v` (16 ×
+`async_ram #(ADDR=20, INIT=0)`). Two CircuitVerse-driven rules, both learned the hard
+way and commented in the RTL:
+
+- No signal wider than 32 bits. 64-bit ports made native CircuitVerse report bus
+  contention.
+- The loader/inspection muxes select on `run`/`inspect`, never on `load_enable`;
+  the host presents address and data, then pulses `load_enable`. Selecting on
+  `load_enable` let the RAM data change one gate before the write enable fell in
+  CircuitVerse's event-driven simulation, overwriting each loaded word with 0
+  (Verilator's zero-delay model cannot show this).
+
+`async_ram` gained `INIT` (default 1, unchanged for existing fixtures): synthesis
+unrolled the 2^20-iteration zero-init loop for >10 minutes; `INIT=0` makes `.cv`
+generation take 39 s. Existing Super Turbo packages record the old `async_ram.v`
+hash for provenance only; their behavior is unchanged.
+
+Tools (`tools/doom`): `iss.c` (oracle; `--profile SYMS` gives a per-function cycle
+profile), `tb_doom.cpp` (native testbench; loads through the RTL loader port, reads
+frames through the inspection port), `common.h` (shared options, key schedule and
+logs, so ISS and RTL outputs diff directly), `machine.py` (builds both; `--trace`
+adds a `--public-flat-rw` testbench producing the ISS's retire hash and trace
+windows for lockstep divergence search), `cv_scenario.py` (generates a cv-gen
+manifest that loads and runs a directed program in CircuitVerse).
+
+Measured (`tools/doom-results.json`), `-warp 1 1`:
 
 | Metric | Value |
 |---|---:|
-| Instructions / cycles to first frame (start of wipe) | 22.3 M / 49.0 M |
-| First gameplay frame (wipe done, tic advancing) | frame 42: 32.1 M instr / 71.2 M cycles |
-| Steady gameplay cost per frame (= per tic) | ≈3.18 M instr, ≈6.94 M cycles (CPI ≈2.18) |
-| Heap high-water (incl. 6 MiB zone) / stack use | 0x6e7358 / ≈1.2 KiB |
-| ISS speed on M4 | ≈250 M instr/s |
+| First frame (start of wipe) | 22.3 M instr / 49.0 M cycles |
+| First gameplay frame | frame 42: 32.1 M instr / 71.2 M cycles |
+| Gameplay per frame (= per tic), median | 3.17 M instr, 6.91 M cycles, CPI 2.18 |
+| Worst frame with walking input | 8.23 M cycles |
+| Heap high-water (6 MiB zone) / stack | 0x6e7358 / 1.2 KiB |
+| Native Verilator (fast testbench) | 10.5–11.4 M cycles/s → 6.5 s to first gameplay, 0.63 s/frame |
+| ISS | ≈250 M instr/s |
+| Browser estimate (not measured) | ≈12.6 s/frame at the raycaster's 547 k cycles/s |
 
-At the browser's measured 547 k cycles/s that is ≈13 s per gameplay frame; native
-Verilator speed is not yet measured.
+Cycle profile (240 frames with walking): `__mulsi3` 32.8 %, `R_DrawColumn` 18.0 %,
+`R_DrawSpan` 12.9 %, `__udivsi3` 7.8 %, `__muldi3` 5.3 %, all software mul/div
+helpers 47.8 %.
 
-Host reference (`build/doom/bin/doom-host`, same engine+platform natively):
-frame hashes match the ISS for every frame from the first gameplay frame (42)
-through 200. The wipe frames before it differ because the wipe's start screen
-samples stale zone memory whose layout depends on pointer size; ISS and RTL share
-the 32-bit layout and must match on every frame.
+Correctness evidence:
 
-Reproduce: `uv run python examples/doom/build.py`, then
-`clang -O2 -o build/doom/bin/iss tools/doom/iss.c` and
-`build/doom/bin/iss --frames 200 --dump-every 50 --out build/doom/run-iss`; compare
-`frames.tsv` with `build/doom/bin/doom-host --frames 200 --out build/doom/run-host`.
+- RTL == ISS on frame hash, instret and cycles for all 200 frames without input and
+  all 240 frames of `examples/doom/input/walk.keys` (walk, turn, fire); consoles
+  identical; trace-testbench retire hashes identical at 30 checkpoints (30 M instr).
+- Host reference == ISS on gameplay frames, except one pixel in walk frame 107;
+  RV32 `-O0` and `-O2` builds agree there, so it is a host (LP64) artifact. Wipe
+  frames before gameplay differ because the wipe's start screen samples stale zone
+  memory whose layout depends on pointer size. ISS and RTL must match on every frame.
+- `tests/test_doom_machine.py`: eight fault causes, counters across the 16-bit
+  retired wrap, bank boundaries and byte lanes, key FIFO and frame handshake — each
+  RTL == ISS plus the architectural expectation — and an engine-marked native
+  CircuitVerse run of the loaded `banks` program (376 samples == Verilator).
+- Full suite: all Python tests pass (6 skipped as before), 33 Node tests pass.
+
+Reproduce:
+
+```sh
+uv run python examples/doom/build.py            # fetch pins, build RV32 image + host ref
+uv run python tools/doom/machine.py --trace     # ISS, fast and trace testbenches
+build/doom/bin/iss --frames 240 --keys examples/doom/input/walk.keys --out build/doom/walk-iss
+build/doom/vfast/tb_doom --frames 240 --keys examples/doom/input/walk.keys --out build/doom/walk-rtl
+diff build/doom/walk-iss/frames.tsv build/doom/walk-rtl/frames.tsv
+uv run cv-gen verilog check --manifest examples/doom/cvgen-verilog.toml
+uv run python tools/doom/cv_scenario.py banks
+uv run cv-gen verilog check --manifest examples/doom/build/cvgen-banks.toml
+```
+
+### Next steps
+
+1. **RV32M** (step 4). Decode in `rv32_decode.v`/ALU; MUL/MULH* single-cycle in
+   EXECUTE; DIV/REM probably multi-cycle (a combinational 32-bit divider is a very
+   large CircuitVerse gate network). Keep the RV32I core variant for the existing
+   fixtures. Mirror in the ISS (signed/unsigned, division by zero, overflow),
+   directed tests, rebuild with `-march=rv32im`, re-run the same walk script and
+   compare RTL == ISS == host, then re-profile. Expect roughly half the cycles.
+2. Then fetch/execute overhead (CPI 2.18), then Super Turbo integration (step 5):
+   320×200 palette display profile, key events, multi-MB loader with pulsed
+   `load_enable`, frame doorbell as the completed-frame signal, and the browser
+   timing policy (one tic per frame keeps it deterministic).
 
 ## Current foundation
 
@@ -221,8 +284,8 @@ time follows simulated cycles or paced external ticks so speed changes remain co
 | Existing Super Turbo foundation | DONE | Evidence above and committed reports |
 | Inspect/pin engine and design runtime/memory map | DONE | Reproducible toolchain, dependency inventory, estimated memory budget |
 | ISS oracle boot + host reference | DONE | E1M1 gameplay on ISS; host frames match from first gameplay frame |
-| Native RTL DOOM boot | TODO | Actual engine reaches first gameplay frame, no CPU/bus faults |
-| Deterministic correctness and baseline | TODO | Matching reference frames plus instruction/cycle/memory measurements |
+| Native RTL DOOM boot | DONE | Actual engine reaches first gameplay frame, no CPU/bus faults |
+| Deterministic correctness and baseline | DONE | Matching reference frames plus instruction/cycle/memory measurements |
 | CPU/model optimization | TODO | Measured improvement with unchanged reference results |
 | Browser integration and controls | TODO | Correct frames, keyboard movement, lifecycle tests, zero native propagation |
 | Interactive speed assessment | TODO | Published measured game-tick/frame rates and bottlenecks |

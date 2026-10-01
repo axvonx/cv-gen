@@ -93,12 +93,22 @@ def engine_sources():
     return [ENGINE / o.replace(".o", ".c") for o in objects if o != "doomgeneric_xlib.o"]
 
 
+def inputs_digest(flags):
+    """Keys object caches on flags, the runtime sources/headers and the engine pin."""
+    digest = hashlib.sha256("\0".join([*flags, DOOMGENERIC[1]]).encode())
+    for path in sorted(RUNTIME.rglob("*")):
+        if path.is_file():
+            digest.update(str(path.relative_to(RUNTIME)).encode() + path.read_bytes())
+    return digest.hexdigest()[:16]
+
+
 def compile_all(jobs, flags, objdir):
+    objdir = objdir / inputs_digest(flags)
     objdir.mkdir(parents=True, exist_ok=True)
 
     def one(source):
         target = objdir / (source.stem + ".o")
-        if target.exists() and target.stat().st_mtime > source.stat().st_mtime:
+        if target.exists():
             return target
         result = subprocess.run(
             [tool("clang"), *flags, "-c", str(source), "-o", str(target)],
@@ -114,7 +124,7 @@ def compile_all(jobs, flags, objdir):
 
 
 def builtins_archive():
-    archive = OUT / "libbuiltins.a"
+    archive = WORK / "builtins" / "libbuiltins.a"
     if archive.exists():
         return archive
     sources = [
@@ -124,7 +134,7 @@ def builtins_archive():
         and "tf" not in s.stem
         and "xf" not in s.stem
     ] + [BUILTINS / "riscv" / "mulsi3.S"]
-    objdir = OUT / "builtins"
+    objdir = WORK / "builtins"
     objdir.mkdir(parents=True, exist_ok=True)
     flags = [*TARGET, "-O2", "-ffreestanding", "-fno-builtin", "-w", "-c"]
 
@@ -144,8 +154,8 @@ def builtins_archive():
     return archive
 
 
-def build(optimize):
-    OUT.mkdir(parents=True, exist_ok=True)
+def build(optimize, out=OUT):
+    out.mkdir(parents=True, exist_ok=True)
     resource = run(
         [tool("clang"), "-print-resource-dir"], capture_output=True, text=True
     ).stdout.strip()
@@ -168,14 +178,14 @@ def build(optimize):
         "-fdata-sections",
         *DEFINES,
     ]
-    engine = compile_all(engine_sources(), [*common, "-w"], OUT / "engine")
-    runtime = compile_all([RUNTIME / "platform.c"], [*common, "-Wall"], OUT / "runtime")
+    engine = compile_all(engine_sources(), [*common, "-w"], WORK / "obj" / "engine")
+    runtime = compile_all([RUNTIME / "platform.c"], [*common, "-Wall"], WORK / "obj" / "runtime")
     runtime += compile_all(
-        [RUNTIME / "libc.c"], [*common, "-Wall", "-ffreestanding"], OUT / "runtime"
+        [RUNTIME / "libc.c"], [*common, "-Wall", "-ffreestanding"], WORK / "obj" / "runtime"
     )
-    start = OUT / "runtime" / "start.o"
+    start = out / "start.o"
     run([tool("clang"), *common, "-c", str(RUNTIME / "start.S"), "-o", str(start)])
-    elf = OUT / "doom.elf"
+    elf = out / "doom.elf"
     run(
         [
             tool("clang"),
@@ -185,7 +195,7 @@ def build(optimize):
             "-Wl,--no-relax",
             "-Wl,--gc-sections",
             f"-Wl,-T,{RUNTIME / 'link.ld'}",
-            f"-Wl,-Map,{OUT / 'doom.map'}",
+            f"-Wl,-Map,{out / 'doom.map'}",
             str(start),
             *map(str, runtime),
             *map(str, engine),
@@ -194,9 +204,9 @@ def build(optimize):
             str(elf),
         ]
     )
-    run([tool("llvm-objcopy"), "-O", "binary", str(elf), str(OUT / "doom.bin")])
-    with open(OUT / "doom.syms", "w") as out:
-        run([tool("llvm-nm"), "-n", "-S", str(elf)], stdout=out)
+    run([tool("llvm-objcopy"), "-O", "binary", str(elf), str(out / "doom.bin")])
+    with open(out / "doom.syms", "w") as syms:
+        run([tool("llvm-nm"), "-n", "-S", str(elf)], stdout=syms)
     size = run([tool("llvm-size"), "-A", str(elf)], capture_output=True, text=True).stdout
     print(size)
     return elf
@@ -205,7 +215,7 @@ def build(optimize):
 def build_host():
     """The same engine and platform code built natively: the frame-hash reference."""
     flags = ["-O2", "-g", "-w", "-DDOOM_HOST", "-I", str(RUNTIME), "-I", str(ENGINE), *DEFINES]
-    objects = compile_all([*engine_sources(), RUNTIME / "platform.c"], flags, OUT / "host")
+    objects = compile_all([*engine_sources(), RUNTIME / "platform.c"], flags, WORK / "obj" / "host")
     binary = WORK / "bin" / "doom-host"
     binary.parent.mkdir(parents=True, exist_ok=True)
     run([tool("clang"), *map(str, objects), "-o", str(binary)])
@@ -215,10 +225,13 @@ def build_host():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("-O", dest="optimize", default="2", help="optimization level")
+    parser.add_argument("--out", type=Path, default=OUT, help="output directory")
+    parser.add_argument("--no-host", action="store_true", help="skip the host reference")
     args = parser.parse_args()
     fetch()
-    build(f"-O{args.optimize}")
-    build_host()
+    build(f"-O{args.optimize}", args.out)
+    if not args.no_host:
+        build_host()
 
 
 if __name__ == "__main__":
