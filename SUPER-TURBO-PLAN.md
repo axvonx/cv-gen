@@ -101,7 +101,7 @@ drawing separately. Run backend/frontend and existing JS/Python tests plus lint.
 | Worker and display observers | DONE | Fresh C 32-frame references; CPU 33, playback16 64, playback64 40 frames checked |
 | Local frontend controller | DONE | Visible Firefox lifecycle and zero-native-propagation acceptance; 67 frontend tests |
 | Correctness and 10× acceptance | DONE | Final visible Firefox median 14,271 → 33 ms (432×); pause p95 6 ms; all lifecycle/reference checks passed; 117 Python tests / 6 skipped |
-| Documentation, commit and push | IN PROGRESS | Guide and tools/circuitverse-fastpath-results.json complete; delivery commit/push next |
+| Documentation, commit and push | DONE | Guide and tools/circuitverse-fastpath-results.json; implementation 1e7533e pushed to origin/feat/circuitverse-super-turbo |
 
 Keep build outputs/checkouts ignored; commit source, tests, integration patch,
 documentation and compact measured results. Publish actual limits and reproduction
