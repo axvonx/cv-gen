@@ -134,5 +134,28 @@
       "native CircuitVerse multiply loses low bits on 32x32 products (double precision), so rv32_mul uses four exact 16x16 products",
       "cv-gen cannot convert / and %, so rv32_div is a 32-stage restoring divider, one module per stage to fit cv-gen's per-scope schematic limit"
     ]
+  },
+  "super_turbo_browser": {
+    "firefox": "157.0, visible, Apple M4",
+    "package": "rv32-doom profile, behavioral RV32M bodies, program + WAD loaded through the RTL loader port",
+    "reference_frames": "60/60 identical to the ISS (state, tic, instret, cycles, framebuffer hash)",
+    "keyboard": "holding ArrowUp through real browser key events changed the rendered frames from frame 62",
+    "native_propagation_counters": {
+      "component": 0,
+      "node": 0,
+      "queue": 0,
+      "scopeClock": 0
+    },
+    "simulated_cycles_per_second": 6659241,
+    "gameplay_frame_ms": {
+      "median": 514,
+      "max": 530
+    },
+    "gameplay_frames_per_second": 1.95,
+    "seconds_to_first_gameplay_frame": 7.4,
+    "boot_and_load_ms_node": 174,
+    "wasm_node_cycles_per_second": 8088854,
+    "package_verification": "verify-doom.mjs: 200 no-input frames and 240 walk-script frames identical to the ISS",
+    "regression": "original Super Turbo Firefox acceptance (--skip-benchmark) passed; 35 Node, 67 frontend tests pass"
   }
 }

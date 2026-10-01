@@ -21,7 +21,10 @@ self.onmessage = async ({ data }) => {
       snapshot = hardware.snapshot();
     } else {
       if (!hardware || epoch !== data.epoch) throw new Error("stale/uninitialized Worker session");
-      if (command === "advance") snapshot = hardware.advance(data.limit, data.budgetMs);
+      if (command === "advance") {
+        hardware.queueKeys(data.keys);
+        snapshot = hardware.advance(data.limit, data.budgetMs);
+      }
       else if (command === "inputs") snapshot = hardware.applyInputs(data.changes);
       else if (command === "reset") snapshot = hardware.reset();
       else if (command === "snapshot") snapshot = hardware.snapshot();

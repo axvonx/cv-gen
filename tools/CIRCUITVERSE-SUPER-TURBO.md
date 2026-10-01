@@ -74,6 +74,62 @@ launch clones the pinned frontend and installs its locked npm dependencies into
 the ignored `build/fastpath/frontend` directory. It does not modify the shared
 CircuitVerse reference-engine cache. Subsequent launches can use `--no-build`.
 
+## DOOM machine (`rv32-doom` profile)
+
+The DOOM machine (`examples/doom`, see `DOOM-PLAN.md`) runs the real doomgeneric
+engine on the RV32IM RTL. Build its pieces, then the package, then verify it frame
+for frame against the ISS oracle before the browser will accept it:
+
+```sh
+uv run python examples/doom/build.py              # pinned engine + WAD, RV32IM image
+uv run python tools/doom/machine.py               # ISS oracle and native testbench
+build/doom/bin/iss --frames 200 --out build/doom/run-im-iss --quiet
+uv run cv-gen verilog build --manifest examples/doom/cvgen-verilog.toml
+uv run python tools/build-circuitverse-fastpath.py \
+  --spec examples/doom/cvgen-verilog.toml --project examples/doom/build/doom.cv \
+  --profile rv32-doom --image build/doom/out/doom.bin --wad build/doom/doom1.wad \
+  --out build/fastpath/doom
+node tools/fastpath/verify-doom.mjs build/fastpath/doom build/doom/run-im-iss/frames.tsv
+uv run python tools/serve-circuitverse-fastpath.py
+# http://127.0.0.1:8765/simulator?fastpath=/packages/doom/
+```
+
+The WAD is packaged only into the ignored local build; never commit or publish it.
+
+Differences from the graphics profiles:
+
+- Boot resets low-high-low, then loads the program and WAD through the RTL loader
+  port (address and data presented, then a `load_enable` pulse) before running.
+- At each frame doorbell the wrapper reads the 320×200 framebuffer and palette
+  through the inspection port, records the frame with the ISS's FNV-1a hash and the
+  machine's cycle/instret counters, pushes queued keys into the key FIFO, and
+  acknowledges. The CPU is halted for those handshake cycles.
+- The frame is drawn in a 320×200 panel with `putImageData`; a CircuitVerse
+  `RGBLedMatrix` is limited to 128×128 and draws each LED as its own path.
+  Top-level outputs remain drawn by CircuitVerse.
+- Keyboard events while Super Turbo is active go to the key FIFO: arrows move/turn,
+  Ctrl fires, Space uses, Shift runs, Alt and `,`/`.` strafe, Esc/Enter for menus.
+  Keys ride with the next batch and enter the machine at the next frame doorbell.
+- The game runs one tic per completed frame, so game time follows rendered frames.
+- The compiled model uses the behavioral bodies of the named RV32M subcircuits
+  (`RV32_BEHAVIORAL_ARITHMETIC`); the CircuitVerse project keeps the structural ones.
+  Tests check both bodies against the ISS and a reference.
+- Batches may hold up to 2^20 half-edges (still bounded by the 8 ms budget), and the
+  next batch is granted through a `MessageChannel` instead of `setTimeout(0)`, whose
+  nested-timer clamp would leave the Worker idle about half the time.
+- The frontend switches to the bound Demo scope on load and enable (the generated
+  project opens on its gate-level scope), and shows the manifest's initial input
+  values so the periodic input sync cannot send stale project values to the model.
+
+Browser acceptance: `uv run --with selenium python tools/doom-firefox.py` requires
+60 frames identical to the ISS, holds the up arrow through real keyboard events and
+requires the view to change, and checks zero native propagation.
+
+On the Apple M4 in visible Firefox 157: **6.66 M simulated cycles/s, 514 ms per
+gameplay frame (≈1.95 frames and game tics per second)**, first gameplay frame about
+7.4 s after enabling. The same WASM model runs at 8.1 M cycles/s in Node and the
+native Verilator testbench at 10.4 M cycles/s.
+
 ## Controls and behavior
 
 - Super Turbo starts off. **Enable** boots a fresh compiled model and starts it.

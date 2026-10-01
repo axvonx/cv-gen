@@ -15,10 +15,16 @@ frame (with and without scripted input), and the exported machine runs a loaded
 program in native CircuitVerse gates identically to Verilator. Measurements are in
 `tools/doom-results.json`.
 
-**RV32M done (step 4, first part).** Gameplay costs 3.21 M cycles per frame with
-walking input (was 6.61 M; 2.06×): ≈0.31 s per frame in native Verilator, ≈5.9 s
-estimated in the browser. Next: CPI/fetch overhead and/or Super Turbo integration
-(see **RV32M** and **Next steps** below).
+**DOOM runs interactively in CircuitVerse Super Turbo (step 5, 2026-10-01).** In
+visible Firefox the packaged RTL renders E1M1 at 514 ms per gameplay frame (≈1.95
+frames and game tics/s, 6.66 M simulated cycles/s); 60 frames are bit-identical to
+the ISS, the keyboard moves the player, native propagation stays at zero. See
+`tools/CIRCUITVERSE-SUPER-TURBO.md` (DOOM section) and `tools/doom-results.json`.
+
+Next options (measure each on the same walk script): pipelining FETCH with the
+previous EXECUTE (CPI 2.38 → ~1.3), DOOM's low-detail mode (halves column work), or
+raising browser throughput (the WASM model does 8.1 M cycles/s in Node vs 6.66 M in
+Firefox; the rest is batch plumbing and presentation).
 
 ## DOOM bring-up state
 
@@ -315,8 +321,8 @@ time follows simulated cycles or paced external ticks so speed changes remain co
 | Native RTL DOOM boot | DONE | Actual engine reaches first gameplay frame, no CPU/bus faults |
 | Deterministic correctness and baseline | DONE | Matching reference frames plus instruction/cycle/memory measurements |
 | CPU/model optimization | IN PROGRESS (RV32M done: 2.06× fewer cycles/frame) | Measured improvement with unchanged reference results |
-| Browser integration and controls | TODO | Correct frames, keyboard movement, lifecycle tests, zero native propagation |
-| Interactive speed assessment | TODO | Published measured game-tick/frame rates and bottlenecks |
+| Browser integration and controls | DONE | Correct frames, keyboard movement, lifecycle tests, zero native propagation |
+| Interactive speed assessment | DONE (≈1.95 fps in Firefox; see results) | Published measured game-tick/frame rates and bottlenecks |
 
 The first goal is **real DOOM boots and renders gameplay on our RTL**. Then make
 it interactive, then pursue playable speed. No playable-frame-rate guarantee yet.

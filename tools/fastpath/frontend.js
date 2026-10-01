@@ -17,6 +17,7 @@ import Node from "./node";
 import { EventQueue } from "./eventQueue";
 import { SuperTurboController } from "./fastpath/controller.mjs";
 import { fetchPackage } from "./fastpath/runtime.mjs";
+import { doomKeyEvent } from "./fastpath/doomkeys.mjs";
 
 export function initializeFastpath() {
   if (window.__cvFastpathHost) return;
@@ -26,6 +27,65 @@ export function initializeFastpath() {
     restorers = [],
     lastValues = {};
   const counters = { queue: 0, node: 0, component: 0, scopeClock: 0 };
+  // Framebuffer profiles (the DOOM machine): the frame read through the inspection
+  // port at each doorbell is drawn here; keys go to the machine's key FIFO.
+  const screen = {
+    element: null,
+    show(display) {
+      if (!this.element) {
+        this.element = document.createElement("section");
+        this.element.id = "cv-doom-screen";
+        this.element.innerHTML = `<strong>Framebuffer ${display.width} × ${display.height}</strong>
+          <canvas width="${display.width}" height="${display.height}"></canvas>
+          <small data-frame>No frame yet</small>
+          <small>Keys: arrows move/turn, Ctrl fire, Space use, Shift run, Alt strafe, ,/. strafe,
+          Esc menu, Enter select. One game tic per completed frame.</small>
+          <pre data-console></pre>`;
+        document.body.append(this.element);
+        this.canvas = this.element.querySelector("canvas");
+        this.context = this.canvas.getContext("2d");
+        this.image = this.context.createImageData(display.width, display.height);
+        this.lines = [];
+      }
+      this.element.hidden = false;
+    },
+    hide() {
+      if (this.element) this.element.hidden = true;
+    },
+    draw(pixels) {
+      const data = this.image.data;
+      for (let i = 0; i < pixels.length; ++i) {
+        const c = pixels[i];
+        data[i * 4] = c >>> 16;
+        data[i * 4 + 1] = (c >>> 8) & 255;
+        data[i * 4 + 2] = c & 255;
+        data[i * 4 + 3] = 255;
+      }
+      this.context.putImageData(this.image, 0, 0);
+      const times = controller.frameTimes;
+      const last = times.at(-1);
+      const interval = times.length > 1 ? last.time - times.at(-2).time : 0;
+      this.element.querySelector("[data-frame]").textContent =
+        `Frame ${last?.index ?? 0}` + (interval ? ` · ${(interval / 1000).toFixed(2)} s/frame` : "");
+    },
+    log(text) {
+      if (!this.element) return;
+      this.lines.push(...text.split("\n"));
+      this.lines = this.lines.filter((line, i, all) => line || i < all.length - 1).slice(-8);
+      this.element.querySelector("[data-console]").textContent = this.lines.join("\n");
+    },
+  };
+  const keyHandler = (pressed) => (event) => {
+    if (!host.active || packageInfo?.manifest.display.kind !== "framebuffer") return;
+    if (event.target.closest?.("#cv-super-panel input")) return;
+    const value = doomKeyEvent(event.key, pressed);
+    if (value === null) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (!event.repeat) controller.queueKey(value);
+  };
+  window.addEventListener("keydown", keyHandler(true), true);
+  window.addEventListener("keyup", keyHandler(false), true);
   const host = {
     active: false,
     enter(info) {
@@ -44,6 +104,8 @@ export function initializeFastpath() {
       play();
       scope = scopeList[info.manifest.display.scopeId];
       if (!scope || scope.name !== "Demo") throw new Error("bound Demo scope missing");
+      // Projects may open on their gate-level scope; Super Turbo runs from Demo.
+      if (String(globalScope?.id) !== String(scope.id)) switchCircuit(scope.id);
       for (const port of info.manifest.ports) {
         const b = port.binding,
           component = scope[b.kind]?.[b.index];
@@ -56,13 +118,17 @@ export function initializeFastpath() {
         )
           throw new Error(`incompatible live binding: ${port.name}`);
       }
-      const matrix = scope.RGBLedMatrix[info.manifest.display.matrixIndex];
-      if (
-        matrix?.label !== info.manifest.display.matrixLabel ||
-        matrix.rows !== info.manifest.display.size ||
-        matrix.columns !== info.manifest.display.size
-      )
-        throw new Error("incompatible display binding");
+      const display = info.manifest.display;
+      if (display.kind === "framebuffer") screen.show(display);
+      else {
+        const matrix = scope.RGBLedMatrix[display.matrixIndex];
+        if (
+          matrix?.label !== display.matrixLabel ||
+          matrix.rows !== display.size ||
+          matrix.columns !== display.size
+        )
+          throw new Error("incompatible display binding");
+      }
       this.active = true;
       packageInfo = info;
       simulationArea.hover = undefined;
@@ -73,6 +139,15 @@ export function initializeFastpath() {
           .filter((p) => p.direction === "input" && p.name !== "clk")
           .map((p) => [p.name, p.initial]),
       );
+      // The model boots from the manifest's initial inputs; show those, so the
+      // periodic input sync does not send the project's saved values back.
+      for (const port of info.manifest.ports.filter(
+        (p) => p.direction === "input" && p.name !== "clk",
+      )) {
+        const component = scope.Input[port.binding.index];
+        component.state = port.initial;
+        component.output1.value = port.initial;
+      }
       for (const key of Object.keys(counters)) counters[key] = 0;
       const protect = (prototype, method, counter) => {
         const descriptor = Object.getOwnPropertyDescriptor(prototype, method);
@@ -101,6 +176,7 @@ export function initializeFastpath() {
     },
     leave() {
       this.active = false;
+      screen.hide();
       for (const restore of restorers.splice(0).reverse()) restore();
       document.body.classList.remove("cv-super-active");
       if (packageInfo) {
@@ -155,8 +231,14 @@ export function initializeFastpath() {
           component.output1.value = lastValues[port.name];
         }
       }
-      const size = packageInfo.manifest.display.size;
-      const matrix = scope.RGBLedMatrix[packageInfo.manifest.display.matrixIndex];
+      const display = packageInfo.manifest.display;
+      if (display.kind === "framebuffer") {
+        if (snapshot.pixels.length) screen.draw(snapshot.pixels);
+        if (globalScope === scope && !layoutModeGet()) renderCanvas(scope);
+        return;
+      }
+      const size = display.size;
+      const matrix = scope.RGBLedMatrix[display.matrixIndex];
       matrix.colors = Array.from({ length: size }, (_, r) =>
         Array.from(snapshot.pixels.slice(r * size, (r + 1) * size)),
       );
@@ -179,6 +261,9 @@ export function initializeFastpath() {
       Object.assign(lastValues, changes);
       this.present(result);
       return result;
+    },
+    console(text) {
+      screen.log(text);
     },
     circuitChanging(id) {
       if (this.active && String(id) !== String(scope?.id)) controller.pause();
@@ -208,7 +293,13 @@ export function initializeFastpath() {
     box-shadow:0 3px 14px #0006}#cv-super-panel button{margin:3px;padding:4px 8px}
     #cv-super-panel small{display:block;margin:6px 0;color:#ccd2dc}
     #cv-super-panel input{width:95px;margin:3px}#cv-super-panel label{display:block}
-    .cv-super-active #Properties,.cv-super-active #plotArea{pointer-events:none;opacity:.4}`;
+    .cv-super-active #Properties,.cv-super-active #plotArea{pointer-events:none;opacity:.4}
+    #cv-doom-screen{position:fixed;left:14px;bottom:14px;z-index:10000;background:#20242b;
+    color:#fff;padding:10px;border-radius:8px;font:12px sans-serif;box-shadow:0 3px 14px #0006;
+    width:640px}#cv-doom-screen canvas{display:block;width:640px;height:400px;margin:6px 0;
+    image-rendering:pixelated;background:#000}#cv-doom-screen small{display:block;color:#ccd2dc}
+    #cv-doom-screen pre{margin:6px 0 0;max-height:7.5em;overflow:hidden;color:#9fd39f;
+    font:11px monospace;white-space:pre-wrap}`;
   document.head.append(style);
   const panel = document.createElement("section");
   panel.id = "cv-super-panel";
@@ -366,6 +457,8 @@ export function initializeFastpath() {
         internalLoad = false;
       }
       simulationArea.clockEnabled = false;
+      const demo = scopeList[packageInfo.manifest.display.scopeId];
+      if (demo && String(globalScope?.id) !== String(demo.id)) switchCircuit(demo.id);
       const inputs = panel.querySelector("[data-inputs]");
       for (const port of packageInfo.manifest.ports.filter(
         (p) => p.direction === "input" && p.name !== "clk",

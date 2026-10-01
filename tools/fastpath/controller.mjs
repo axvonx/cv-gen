@@ -17,6 +17,12 @@ export class SuperTurboController {
     this.lastPaint = 0;
     this.frameTimes = [];
     this.controlRevision = 0;
+    this.keyQueue = [];
+  }
+  /** Key events ride along with the next batch; they enter the machine at a frame. */
+  queueKey(value) {
+    if (this.mode === "super" && this.manifest?.display.kind === "framebuffer")
+      this.keyQueue.push(value);
   }
   subscribe(listener) {
     this.listeners.add(listener);
@@ -68,19 +74,24 @@ export class SuperTurboController {
       if (data.snapshot) {
         this.last = data.snapshot;
         const now = performance.now();
-        const stride = this.manifest.display.size ** 2 + 3;
+        const display = this.manifest.display;
+        const header = display.frameHeader ?? 3;
+        const count = display.width ? display.width * display.height : display.size ** 2;
+        const stride = header + (display.framePixels === false ? 0 : count);
         for (let i = 0; i < this.last.frames.length; i += stride) {
           const frame = {
             index: this.last.frames[i],
             time: this.last.frameTimes[i / stride],
             edges: this.last.frames[i + 1] + this.last.frames[i + 2] * 2 ** 32,
-            pixels: this.last.frames.slice(i + 3, i + stride),
+            header: this.last.frames.slice(i, i + header),
+            pixels: this.last.frames.slice(i + header, i + stride),
           };
           this.frameTimes.push({ index: frame.index, time: frame.time, edges: frame.edges });
           if (this.frameTimes.length > 256) this.frameTimes.shift();
           this.host.completedFrame?.(frame);
         }
-        if (!this.running || now - this.lastPaint >= 1000 / 30) {
+        if (this.last.console) this.host.console?.(this.last.console);
+        if (!this.running || now - this.lastPaint >= 1000 / 30 || this.last.pixels.length) {
           this.host.present(this.last);
           this.lastPaint = now;
         }
@@ -182,13 +193,30 @@ export class SuperTurboController {
     }
     this.status = "Super Turbo";
     const epoch = this.epoch;
-    this.request("advance", { limit: 65536, budgetMs: this.budgetMs })
+    const display = this.manifest.display;
+    this.request("advance", {
+      limit: display.maxBatch ?? 65536,
+      budgetMs: this.budgetMs,
+      keys: this.keyQueue.splice(0),
+    })
       .then(() => {
-        if (this.epoch === epoch) setTimeout(() => this.pump(), 0);
+        if (this.epoch === epoch) this.yield(() => this.pump());
       })
       .catch((error) => {
         if (this.epoch === epoch) this.fail(error.message);
       });
+  }
+  // Framebuffer profiles continue without setTimeout's nested-timer clamp (>= 4 ms),
+  // which would otherwise idle the Worker for about half of each 8 ms batch.
+  yield(next) {
+    if (this.manifest?.display.kind !== "framebuffer" || typeof MessageChannel === "undefined")
+      return setTimeout(next, 0);
+    if (!this.channel) {
+      this.channel = new MessageChannel();
+      this.channel.port1.onmessage = () => this.channelNext?.();
+    }
+    this.channelNext = next;
+    this.channel.port2.postMessage(0);
   }
   async operation(command, extra) {
     const wasRunning = this.running;
@@ -213,6 +241,9 @@ export class SuperTurboController {
   }
   disposeWorker() {
     ++this.epoch;
+    this.channel?.port1.close();
+    this.channel?.port2.close();
+    this.channel = null;
     if (this.pending) {
       clearTimeout(this.pending.timer);
       this.pending.reject(new Error("session disposed"));

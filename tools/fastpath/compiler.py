@@ -1,4 +1,4 @@
-"""Reproducible opt-in packages for the two generated graphics profiles."""
+"""Reproducible opt-in packages for the generated graphics profiles and the DOOM machine."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from pathlib import Path
 
 from cv_gen.verilog import BuildError, load_spec
 
-from .model import native_runner, wrapper
+from .model import doom_wrapper, native_runner, wrapper
 
 ROOT = Path(__file__).resolve().parents[2]
 ASSETS = Path(__file__).parent
@@ -117,6 +117,98 @@ def inspect_hdl(spec, directory, verilator):
     return ports, sorted(dependencies), sorted(set(memories))
 
 
+def bind_port(demo, port):
+    """Binds an RTL top port to the uniquely labelled Demo Clock/Input/Output."""
+    if port["name"] == "clk":
+        if port != {"name": "clk", "width": 1, "direction": "input"}:
+            raise BuildError("invalid clock port")
+        port.update(
+            initial=0,
+            binding={
+                "kind": "Clock",
+                "index": 0,
+                "label": "clk",
+                "node": demo["Clock"][0]["customData"]["nodes"]["output1"],
+            },
+        )
+        return
+    kind = "Input" if port["direction"] == "input" else "Output"
+    matches = [(i, p) for i, p in enumerate(demo.get(kind, [])) if p["label"] == port["name"]]
+    if len(matches) != 1:
+        raise BuildError(f"missing/ambiguous {kind} binding {port['name']}")
+    index, component = matches[0]
+    data = component["customData"]
+    if data["constructorParamaters"][1] != port["width"]:
+        raise BuildError(f"binding width mismatch: {port['name']}")
+    port["binding"] = {
+        "kind": kind,
+        "index": index,
+        "label": port["name"],
+        "node": data["nodes"]["output1" if kind == "Input" else "inp1"],
+    }
+    if kind == "Input":
+        port["initial"] = data.get("values", {}).get("state", 0)
+        if type(port["initial"]) is not int or not 0 <= port["initial"] < 1 << port["width"]:
+            raise BuildError(f"invalid initial input value: {port['name']}")
+
+
+DOOM_OUTPUTS = {
+    "frame_pending",
+    "frame_info",
+    "peek_word",
+    "fault",
+    "fault_cause",
+    "done",
+    "exit_code",
+    "console_write",
+    "console_data",
+    "key_full",
+    "cycle_lo",
+    "cycle_hi",
+    "instret_lo",
+    "instret_hi",
+    "pc",
+}
+DOOM_INPUTS = {
+    "clk",
+    "rst",
+    "run",
+    "load_enable",
+    "inspect",
+    "load_address",
+    "peek_address",
+    "load_data",
+    "frame_ack",
+    "key_push",
+    "key_data",
+}
+
+
+def doom_bindings(demo, ports, top):
+    """The 320x200 framebuffer is read through the inspection port at each frame
+    doorbell and drawn by the frontend; no CircuitVerse display element is bound."""
+    if top != "rv32_doom":
+        raise BuildError("rv32-doom requires the rv32_doom RTL top")
+    outputs = {p["name"] for p in ports if p["direction"] == "output"}
+    inputs = {p["name"] for p in ports if p["direction"] == "input"}
+    if DOOM_OUTPUTS - outputs or DOOM_INPUTS - inputs:
+        raise BuildError("missing rv32-doom machine ports")
+    for port in ports:
+        bind_port(demo, port)
+        if port["name"] == "run":
+            port["initial"] = 1  # the wrapper loads with run low, then runs
+    return {
+        "scopeId": demo["id"],
+        "scopeName": "Demo",
+        "kind": "framebuffer",
+        "width": 320,
+        "height": 200,
+        "frameHeader": 10,
+        "framePixels": False,
+        "maxBatch": 1 << 20,
+    }
+
+
 def bindings(document, ports, profile, top):
     demos = [s for s in document["scopes"] if s["name"] == "Demo"]
     tops = [s for s in document["scopes"] if s["name"] == top]
@@ -126,6 +218,8 @@ def bindings(document, ports, profile, top):
     clock = demo.get("Clock", [])
     if len(clock) != 1 or clock[0]["label"] != "clk":
         raise BuildError("Demo must have exactly one clock named clk")
+    if profile == "rv32-doom":
+        return doom_bindings(demo, ports, top)
     if len(demo.get("RGBLedMatrix", [])) != 1:
         raise BuildError("Demo must have exactly one RGBLedMatrix")
     matrix = demo["RGBLedMatrix"][0]
@@ -183,8 +277,10 @@ def bindings(document, ports, profile, top):
     }
 
 
-def build(spec_path, project_path, profile, output):
+def build(spec_path, project_path, profile, output, image=None, wad=None):
     spec = load_spec(spec_path)
+    if (profile == "rv32-doom") != (image is not None and wad is not None):
+        raise BuildError("rv32-doom requires --image and --wad; other profiles take neither")
     project_path, output = Path(project_path).resolve(), Path(output).resolve()
     if spec.format != "legacy" or spec.clocks != ("clk",):
         raise BuildError("fastpath requires legacy format and a single clk")
@@ -196,6 +292,13 @@ def build(spec_path, project_path, profile, output):
     ) as temporary:
         scratch = Path(temporary)
         ports, dependencies, memories = inspect_hdl(spec, scratch, verilator)
+        # Compiled models of the DOOM machine use the behavioral bodies of the named
+        # RV32M subcircuits; the exported CircuitVerse project keeps the structural ones.
+        model_defines = ["-DRV32_BEHAVIORAL_ARITHMETIC"] if profile == "rv32-doom" else []
+        payload = []
+        if profile == "rv32-doom":
+            payload = [(Path(image).resolve(), "doom.bin"), (Path(wad).resolve(), "doom1.wad")]
+            dependencies = sorted({*dependencies, *(source for source, _ in payload)})
         project_bytes = project_path.read_bytes()
         display = bindings(json.loads(project_bytes), ports, profile, spec.top)
         manifest = {
@@ -216,9 +319,10 @@ def build(spec_path, project_path, profile, output):
                 }
                 for p in dependencies
             ],
-            "boot": "reset-low-high-low-run"
-            if profile == "rv32-graphics"
-            else "initialized-clock-low",
+            "boot": {
+                "rv32-graphics": "reset-low-high-low-run",
+                "rv32-doom": "reset-low-high-low-load-run",
+            }.get(profile, "initialized-clock-low"),
             "validation": {"status": "unverified"},
         }
         obj = scratch / "obj"
@@ -237,12 +341,14 @@ def build(spec_path, project_path, profile, output):
                 "Vmodel",
                 "--Mdir",
                 str(obj),
+                *model_defines,
                 *arguments(spec),
             ],
             cwd=ROOT,
         )
         manifest["warnings"] = check_warnings(result.stderr)
-        (scratch / "wrapper.cpp").write_text(wrapper(manifest))
+        generate = doom_wrapper if profile == "rv32-doom" else wrapper
+        (scratch / "wrapper.cpp").write_text(generate(manifest))
         manifest["wrapperSha256"] = digest((scratch / "wrapper.cpp").read_bytes())
         (scratch / "native.cpp").write_text(native_runner(manifest))
         vroot = Path(run([verilator, "--getenv", "VERILATOR_ROOT"]).stdout.strip())
@@ -276,6 +382,7 @@ def build(spec_path, project_path, profile, output):
                 "frame_times",
                 "error",
                 "destroy",
+                *(["key", "console"] if profile == "rv32-doom" else []),
             ]
         ] + ["_malloc", "_free"]
         flags = [
@@ -289,7 +396,7 @@ def build(spec_path, project_path, profile, output):
             "-sEXPORTED_FUNCTIONS=" + json.dumps(exports),
             '-sEXPORTED_RUNTIME_METHODS=["UTF8ToString","HEAPU32","HEAPF64"]',
         ]
-        for source, name in memories:
+        for source, name in [*memories, *payload]:
             flags.extend(["--preload-file", f"{source}@/{name}"])
         run(
             [
@@ -304,7 +411,7 @@ def build(spec_path, project_path, profile, output):
             cwd=ROOT,
         )
         manifest["flags"] = {
-            "verilator": ["--cc", "--no-timing", "--threads", "1", "-O3"],
+            "verilator": ["--cc", "--no-timing", "--threads", "1", "-O3", *model_defines],
             "emscripten": flags,
         }
         manifest["modelId"] = digest(json.dumps(manifest, sort_keys=True).encode())
@@ -328,11 +435,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--spec", type=Path, required=True)
     parser.add_argument("--project", type=Path, required=True)
-    parser.add_argument("--profile", choices=["rv32-graphics", "rom-playback"], required=True)
+    parser.add_argument(
+        "--profile", choices=["rv32-graphics", "rom-playback", "rv32-doom"], required=True
+    )
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--image", type=Path, help="rv32-doom: program image (doom.bin)")
+    parser.add_argument("--wad", type=Path, help="rv32-doom: game data (doom1.wad)")
     args = parser.parse_args()
     try:
-        manifest = build(args.spec, args.project, args.profile, args.out)
+        manifest = build(args.spec, args.project, args.profile, args.out, args.image, args.wad)
     except (BuildError, OSError, KeyError) as error:
         parser.exit(1, f"fastpath: {error}\n")
     print(

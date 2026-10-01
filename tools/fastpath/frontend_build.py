@@ -124,7 +124,7 @@ def prepare(directory):
     )
     shutil.copyfile(ASSETS / "frontend.js", src / "cvgenFastpath.js")
     (src / "fastpath").mkdir(exist_ok=True)
-    for name in ["runtime.mjs", "controller.mjs"]:
+    for name in ["runtime.mjs", "controller.mjs", "doomkeys.mjs"]:
         shutil.copyfile(ASSETS / name, src / "fastpath" / name)
     if not (directory / "node_modules").exists():
         run(["npm", "ci", "--ignore-scripts"], cwd=directory)

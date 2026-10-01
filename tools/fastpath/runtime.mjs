@@ -6,6 +6,14 @@ export class HardwareModel {
     this.inputs = manifest.ports.filter((p) => p.direction === "input");
     this.outputs = manifest.ports.filter((p) => p.direction === "output");
     this.values = Uint32Array.from(this.inputs.map((p) => p.initial));
+    const display = manifest.display;
+    this.pixelCount = display.width ? display.width * display.height : display.size ** 2;
+    // Frame records: a header (index, edges, ...) and, unless framePixels is false,
+    // that frame's pixels. A framebuffer profile copies pixels only when a frame completes.
+    this.stride = (display.frameHeader ?? 3) + (display.framePixels === false ? 0 : this.pixelCount);
+    this.maxBatch = display.maxBatch ?? 65536;
+    this.framebuffer = display.kind === "framebuffer";
+    this.copiedFrame = -1;
     this.pointer = module._malloc(this.values.byteLength);
     if (!this.pointer) throw new Error("input allocation failed");
     this.check(module._fp_create());
@@ -34,11 +42,17 @@ export class HardwareModel {
     this.check(this.module._fp_apply_inputs(this.pointer));
     return this.snapshot();
   }
+  queueKeys(events = []) {
+    for (const value of events) {
+      if (!this.framebuffer || !Number.isInteger(value)) throw new Error("invalid key event");
+      this.check(this.module._fp_key(value));
+    }
+  }
   advance(limit = 65536, budgetMs = 8) {
     if (
       !Number.isInteger(limit) ||
       limit < 0 ||
-      limit > 65536 ||
+      limit > this.maxBatch ||
       !Number.isFinite(budgetMs) ||
       budgetMs < 0 ||
       budgetMs > 8
@@ -54,10 +68,13 @@ export class HardwareModel {
     const counters = m.HEAPU32.slice(pointer >>> 2, (pointer >>> 2) + 6);
     const copy = (ptr, n) => m.HEAPU32.slice(ptr >>> 2, (ptr >>> 2) + n);
     const raw = copy(m._fp_outputs(), this.outputs.length);
+    const completed = counters[3] + counters[4] * 2 ** 32;
+    const fresh = !this.framebuffer || completed !== this.copiedFrame;
+    this.copiedFrame = completed;
     return {
       edges: counters[0] + counters[1] * 2 ** 32,
       clock: counters[2],
-      completed: counters[3] + counters[4] * 2 ** 32,
+      completed,
       outputs: Object.fromEntries(this.outputs.map((p, i) => [p.name, raw[i]])),
       inputs: Object.fromEntries(
         this.inputs.map((p, i) => [
@@ -65,12 +82,13 @@ export class HardwareModel {
           p.name === this.manifest.clock ? counters[2] : this.values[i],
         ]),
       ),
-      pixels: copy(m._fp_pixels(), this.manifest.display.size ** 2),
+      pixels: fresh ? copy(m._fp_pixels(), this.pixelCount) : new Uint32Array(0),
       frames: copy(m._fp_frames(), counters[5]),
       frameTimes: m.HEAPF64.slice(
         m._fp_frame_times() >>> 3,
-        (m._fp_frame_times() >>> 3) + counters[5] / (this.manifest.display.size ** 2 + 3),
+        (m._fp_frame_times() >>> 3) + counters[5] / this.stride,
       ),
+      console: this.framebuffer ? m.UTF8ToString(m._fp_console()) : "",
     };
   }
   dispose() {
@@ -89,7 +107,10 @@ export async function fetchPackage(base) {
   const response = await fetch(new URL("manifest.json", base));
   if (!response.ok) throw new Error("package manifest not found");
   const manifest = await response.json();
-  if (manifest.abi !== 1 || !["rv32-graphics", "rom-playback"].includes(manifest.profile))
+  if (
+    manifest.abi !== 1 ||
+    !["rv32-graphics", "rom-playback", "rv32-doom"].includes(manifest.profile)
+  )
     throw new Error("unsupported backend ABI/profile");
   if (manifest.validation?.passed !== true)
     throw new Error(
